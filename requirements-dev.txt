@@ -1,0 +1,3 @@
+pytest>=8.0
+httpx>=0.27
+playwright>=1.42

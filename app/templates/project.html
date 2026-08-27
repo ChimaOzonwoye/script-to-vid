@@ -154,13 +154,16 @@ function localCount() {
 }
 
 let saveTimer = null;
+let dirty = false;
 function scheduleSave() {
   localCount();
+  dirty = true;
   clearTimeout(saveTimer);
   saveTimer = setTimeout(saveScript, 700);
 }
 
 async function saveScript() {
+  dirty = false;
   const r = await fetch(`/p/${NAME}/script`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -190,6 +193,18 @@ async function saveScript() {
 script.addEventListener("input", scheduleSave);
 localCount();
 saveScript();
+
+// theme and duplicate submits reload the page; a save still sitting in the
+// debounce window must land first or the last edit is lost
+for (const f of document.querySelectorAll("form[method=post]")) {
+  f.addEventListener("submit", async (e) => {
+    if (!dirty) return;
+    e.preventDefault();
+    clearTimeout(saveTimer);
+    await saveScript();
+    f.submit();
+  });
+}
 
 $("scriptfile").addEventListener("change", async (e) => {
   const f = e.target.files[0];
