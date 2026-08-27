@@ -7,8 +7,6 @@ A figure is described by three choices: a pose (what the body is doing), an
 expression (what the face is doing), and an optional prop.
 """
 
-import numpy as np
-import matplotlib.pyplot as plt
 from matplotlib.patches import FancyBboxPatch, Circle, Polygon, Rectangle, Arc
 
 # brand palette, same as the slides
