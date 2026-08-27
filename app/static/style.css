@@ -10,6 +10,9 @@
 
 * { box-sizing: border-box; }
 
+/* author display rules on buttons would defeat the hidden attribute */
+[hidden] { display: none !important; }
+
 body {
   margin: 0;
   background: var(--bg);

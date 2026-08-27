@@ -1,8 +1,9 @@
-work/
-out/
 __pycache__/
 *.pyc
 .venv/
 projects/
+ffmpeg/
+work/
+out/
 logo.png
 music.mp3
