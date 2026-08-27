@@ -16,7 +16,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from PIL import Image
 
-from . import engine, projects
+from . import engine, projects, voices
 from .script_parser import parse
 from .themes import THEMES, DEFAULT_THEME
 
@@ -30,6 +30,8 @@ app.mount("/files", StaticFiles(directory=projects.PROJECTS_DIR), name="files")
 MUSIC_DIR = projects.ROOT / "assets" / "music"
 if MUSIC_DIR.is_dir():
     app.mount("/library", StaticFiles(directory=MUSIC_DIR), name="library")
+voices.SAMPLE_DIR.mkdir(parents=True, exist_ok=True)
+app.mount("/voices", StaticFiles(directory=voices.SAMPLE_DIR), name="voices")
 
 STAGES = {"voice": ("1", "generating the voiceover"),
           "slides": ("2", "drawing slides"),
@@ -61,8 +63,8 @@ def _mmss(sec):
 
 def _analysis(name, text):
     r = parse(text)
-    est = engine.estimate_seconds(r["beats"])
     cfg = projects.settings(name)
+    est = engine.estimate_seconds(r["beats"], cfg["rate"])
     theme = THEMES.get(cfg["theme"], THEMES[DEFAULT_THEME])
     p = engine.plan(projects.path_of(name), r["beats"], theme,
                     cfg["voice"], cfg["rate"])
@@ -122,6 +124,10 @@ def project_page(request: Request, name: str):
         "script": projects.script(name),
         "theme": theme,
         "themes": THEMES,
+        "voices": voices.listing(),
+        "voice": cfg["voice"],
+        "rates": voices.RATES,
+        "rate": cfg["rate"],
         "has_logo": (p / "logo.png").exists(),
         "has_music": music.exists(),
         "music_length": _mmss(msec) if msec else None,
@@ -153,6 +159,19 @@ async def save_script(name: str, request: Request):
     text = body.get("script", "")
     projects.save_script(name, text)
     return _analysis(name, text)
+
+
+@app.post("/p/{name}/voice")
+def set_voice(name: str, voice: str = Form(...), rate: str = Form(...)):
+    if not _valid(name):
+        return fail("That project no longer exists.", 404)
+    projects.save_settings(name, {"voice": voices.valid_voice(voice),
+                                  "rate": voices.valid_rate(rate)})
+    cfg = projects.settings(name)
+    return {"message": f"Narration will use {voices.rate_label(cfg['rate']).lower()} "
+                       "speed. Lines already made in another voice will be "
+                       "made again.",
+            "voice": cfg["voice"], "rate": cfg["rate"]}
 
 
 @app.post("/p/{name}/theme")

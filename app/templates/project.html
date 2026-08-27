@@ -47,8 +47,34 @@
     <div id="warnings" class="notice warn"></div>
   </section>
 
+  <section class="step" id="voice">
+    <h2><span class="stepnum">3</span>Voice</h2>
+    <p class="hint">Who reads your script. Press play to hear each one before
+    you choose.</p>
+    <div class="voicepick">
+      <select id="voice-select" aria-label="Narration voice">
+        {% for v in voices %}
+        <option value="{{ v.id }}" {{ 'selected' if v.id == voice else '' }}
+                data-sample="{{ '/voices/' ~ v.id ~ '.mp3' if v.has_sample else '' }}">
+          {{ v.label }}
+        </option>
+        {% endfor %}
+      </select>
+      <button type="button" class="quiet small" id="voice-play">Play sample</button>
+      <audio id="voice-audio" preload="none"></audio>
+    </div>
+    <p class="hint" style="margin-top:16px">Speed</p>
+    <div class="rates">
+      {% for value, label in rates %}
+      <button type="button" class="rate quiet small {{ 'selected' if value == rate else '' }}"
+              data-rate="{{ value }}">{{ label }}</button>
+      {% endfor %}
+    </div>
+    <div id="voice-note" class="notice"></div>
+  </section>
+
   <section class="step" id="look">
-    <h2><span class="stepnum">3</span>Look</h2>
+    <h2><span class="stepnum">4</span>Look</h2>
     <p class="hint">The page shows the theme you pick. So will the video.</p>
     <div class="swatches">
       {% for key, t in themes.items() %}
@@ -69,7 +95,7 @@
   </section>
 
   <section class="step">
-    <h2><span class="stepnum">4</span>Logo <small>(optional)</small></h2>
+    <h2><span class="stepnum">5</span>Logo <small>(optional)</small></h2>
     <p class="hint">A square .png or .jpg. It is shown as a circle in the top
     right corner, and large on the end card.</p>
     <p>
@@ -85,7 +111,7 @@
   </section>
 
   <section class="step">
-    <h2><span class="stepnum">5</span>Music <small>(optional)</small></h2>
+    <h2><span class="stepnum">6</span>Music <small>(optional)</small></h2>
     <p class="hint">Quiet instrumental under the voice. It ducks down while the
     voice speaks and loops smoothly if it is shorter than the video.</p>
     <div id="music-note" class="notice">{% if has_music %}This project has
@@ -125,7 +151,7 @@
   </section>
 
   <section class="step">
-    <h2><span class="stepnum">6</span>Generate</h2>
+    <h2><span class="stepnum">7</span>Generate</h2>
     <p><button id="generate">Generate the video</button></p>
     <p class="progress" id="progress"></p>
     <div id="gen-error" class="notice error"></div>
@@ -204,6 +230,48 @@ for (const f of document.querySelectorAll("form[method=post]")) {
     clearTimeout(saveTimer);
     await saveScript();
     f.submit();
+  });
+}
+
+// ---- voice ----
+const voiceSelect = $("voice-select");
+const voiceAudio = $("voice-audio");
+
+function currentRate() {
+  const on = document.querySelector(".rate.selected");
+  return on ? on.dataset.rate : "-4%";
+}
+
+async function saveVoice() {
+  const fd = new FormData();
+  fd.append("voice", voiceSelect.value);
+  fd.append("rate", currentRate());
+  const a = await (await fetch(`/p/${NAME}/voice`, { method: "POST", body: fd })).json();
+  $("voice-note").textContent = a.error || a.message;
+  saveScript();   // the runtime estimate depends on the speed
+}
+
+$("voice-play").addEventListener("click", () => {
+  const src = voiceSelect.selectedOptions[0].dataset.sample;
+  if (!src) {
+    $("voice-note").textContent =
+      "No sample for this voice yet. It still works for your video; the " +
+      "samples are made during install.";
+    return;
+  }
+  voiceAudio.src = src;
+  voiceAudio.play();
+});
+
+voiceSelect.addEventListener("change", saveVoice);
+
+for (const b of document.querySelectorAll(".rate")) {
+  b.addEventListener("click", () => {
+    for (const other of document.querySelectorAll(".rate")) {
+      other.classList.remove("selected");
+    }
+    b.classList.add("selected");
+    saveVoice();
   });
 }
 

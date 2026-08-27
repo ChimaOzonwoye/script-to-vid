@@ -162,3 +162,18 @@ video { width: 100%; margin-top: 18px; border-radius: 10px;
 .downloads { display: flex; gap: 12px; margin-top: 14px; }
 
 hr.sub { border: 0; border-top: 1px solid var(--grid); margin: 22px 0; }
+
+.voicepick { display: flex; gap: 12px; align-items: center; margin-top: 16px;
+  flex-wrap: wrap; }
+.voicepick select {
+  flex: 1;
+  min-width: 220px;
+  padding: 10px 12px;
+  border: 2px solid var(--grid);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--ink);
+  font-size: 17px;
+}
+.rates { display: flex; gap: 10px; margin-top: 8px; flex-wrap: wrap; }
+.rate.selected { border-color: var(--accent); color: var(--accent); font-weight: 700; }

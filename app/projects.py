@@ -10,14 +10,14 @@ import re
 import shutil
 from pathlib import Path
 
-from .engine import VOICE, RATE
 from .themes import DEFAULT_THEME
+from .voices import DEFAULT_VOICE, DEFAULT_RATE, valid_voice, valid_rate
 
 ROOT = Path(__file__).resolve().parent.parent
 PROJECTS_DIR = ROOT / "projects"
 EXAMPLE_SCRIPT = ROOT / "example-script.txt"
 
-DEFAULTS = {"theme": DEFAULT_THEME, "voice": VOICE, "rate": RATE}
+DEFAULTS = {"theme": DEFAULT_THEME, "voice": DEFAULT_VOICE, "rate": DEFAULT_RATE}
 
 
 def slugify(name):
@@ -73,9 +73,12 @@ def duplicate(src, new_name):
 def settings(name):
     p = path_of(name) / "project.json"
     try:
-        return {**DEFAULTS, **json.loads(p.read_text())}
+        cfg = {**DEFAULTS, **json.loads(p.read_text())}
     except (OSError, ValueError):
         return dict(DEFAULTS)
+    cfg["voice"] = valid_voice(cfg.get("voice"))
+    cfg["rate"] = valid_rate(cfg.get("rate"))
+    return cfg
 
 
 def save_settings(name, updates):

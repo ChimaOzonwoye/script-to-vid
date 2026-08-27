@@ -39,9 +39,7 @@ from matplotlib.colors import to_rgb
 from PIL import Image
 
 from .themes import mix
-
-VOICE = "en-US-AndrewMultilingualNeural"   # warm, conversational
-RATE = "-4%"                                # slightly slowed for the "neighbor" tone
+from .voices import DEFAULT_VOICE as VOICE, DEFAULT_RATE as RATE
 W, H = 1920, 1080
 FPS = 30
 
@@ -494,9 +492,19 @@ def duration(path):
     return float(json.loads(out)["format"]["duration"])
 
 
-def estimate_seconds(beats):
+def _rate_fraction(rate):
+    try:
+        return float(str(rate).strip().rstrip("%")) / 100
+    except ValueError:
+        return 0.0
+
+
+def estimate_seconds(beats, rate=RATE):
+    """WPM was measured at the default rate, so a different speaking rate
+    scales the spoken part. The per-beat padding is fixed either way."""
     words = sum(len(b.get("say", "").split()) for b in beats)
-    return words / WPM * 60 + len(beats) * (LEAD_SILENCE + BREATH)
+    scale = (1 + _rate_fraction(RATE)) / (1 + _rate_fraction(rate))
+    return words / WPM * 60 * scale + len(beats) * (LEAD_SILENCE + BREATH)
 
 
 # ----------------------------------------------------------------------

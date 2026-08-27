@@ -85,6 +85,49 @@ def test_script_analysis(client, project):
     assert projects.script(project).startswith("# Chapter")
 
 
+def test_voice_picker_is_on_the_page(client, project):
+    from app import voices
+    body = client.get(f"/p/{project}").text
+    assert "Voice" in body
+    for vid, name, _accent, _gender in voices.VOICES:
+        assert vid in body, f"{name} missing from the picker"
+    for value, label in voices.RATES:
+        assert label in body
+
+
+def test_voice_and_rate_persist(client, project):
+    from app import voices
+    other = voices.VOICE_IDS[1]
+    r = client.post(f"/p/{project}/voice",
+                    data={"voice": other, "rate": "+10%"})
+    assert r.status_code == 200
+    cfg = projects.settings(project)
+    assert cfg["voice"] == other and cfg["rate"] == "+10%"
+    # and the page comes back with it selected
+    assert f'value="{other}" selected' in client.get(f"/p/{project}").text
+
+
+def test_unknown_voice_is_refused_not_stored(client, project):
+    r = client.post(f"/p/{project}/voice",
+                    data={"voice": "en-XX-NopeNeural", "rate": "wrong"})
+    assert r.status_code == 200
+    cfg = projects.settings(project)
+    from app import voices
+    assert cfg["voice"] == voices.DEFAULT_VOICE
+    assert cfg["rate"] == voices.DEFAULT_RATE
+
+
+def test_changing_rate_changes_the_runtime_estimate(client, project):
+    script = "Some narration with a reasonable number of words in it here."
+    client.post(f"/p/{project}/voice", data={"voice": projects.DEFAULTS["voice"],
+                                             "rate": "-18%"})
+    slow = client.post(f"/p/{project}/script", json={"script": script}).json()
+    client.post(f"/p/{project}/voice", data={"voice": projects.DEFAULTS["voice"],
+                                             "rate": "+10%"})
+    fast = client.post(f"/p/{project}/script", json={"script": script}).json()
+    assert slow["seconds"] > fast["seconds"]
+
+
 def test_theme_persists_and_page_uses_it(client, project):
     r = client.post(f"/p/{project}/theme", data={"theme": "sky"},
                     follow_redirects=False)

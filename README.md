@@ -1,7 +1,42 @@
 # script to vid
 
-Turns a written narration script into a finished, narrated explainer video.
-No editing software, no cost per video.
+Write a script. Get back a narrated video with visuals, subtitles, your logo
+and music. Runs on your own computer, free, no editing software.
+
+## Install
+
+**Windows.** Press the Windows key, type `powershell`, open it, then paste
+this and press Enter:
+
+```
+irm https://raw.githubusercontent.com/ChimaOzonwoye/script-to-vid/main/install.ps1 | iex
+```
+
+**Mac.** Press Command and Space, type `terminal`, open it, then paste this
+and press Enter:
+
+```
+curl -fsSL https://raw.githubusercontent.com/ChimaOzonwoye/script-to-vid/main/install.sh | bash
+```
+
+That is the whole install. It checks for Python and tells you where to get it
+if you need it, downloads everything including the video engine, and opens the
+app in your browser when it is finished. The first run takes a few minutes.
+After that there is a **script to vid** shortcut on your Desktop.
+
+If you would rather not paste something you have not read, open the link in
+your browser first and read it. Or paste it into ChatGPT or Claude and ask
+what it does before you run it. Piping a script from the internet into your
+shell is a fair thing to be careful about.
+
+<details>
+<summary>Prefer to download it yourself?</summary>
+
+Click the green **Code** button above, then **Download ZIP**, and unzip it.
+Then on Windows double-click `install-windows.bat`, or on a Mac open Terminal
+in that folder and run `./install.sh`. Same result, more steps.
+
+</details>
 
 ![The page](docs/the-page.png)
 
@@ -9,57 +44,32 @@ No editing software, no cost per video.
 
 ## Why this exists
 
-Making a video usually means paying an editor, or paying per render for an AI
-video tool. If you have something worth explaining but not the budget to
-produce it, that cost is where you stop.
+Explaining something well is not just a video. It is narration, visuals,
+captions, branding and an edit. Paying people for that costs money. AI video
+tools charge per render. If you have something worth explaining and no budget,
+that is usually where it ends.
 
-This turns a written script into a finished video on your own machine, for
-nothing. It runs locally, there is no account and no per-video charge, so
-running out of money is not the thing that stops you starting.
-
-## Before you install
-
-You need **Python 3.10 or newer**. If you do not have it, download it from
-[python.org/downloads](https://www.python.org/downloads/) and install it
-first. On Windows, tick **Add python.exe to PATH** on the first screen of the
-Python installer.
-
-The installer will tell you plainly if Python is missing, so if you are not
-sure, just carry on and it will check for you.
-
-## Install
-
-1. Download this repository: the green **Code** button, then **Download ZIP**.
-   Unzip it somewhere you can find again, like your Documents folder.
-
-2. **Windows:** double-click `install-windows.bat`.
-   **Mac:** open Terminal in the folder and run `./install-mac.sh`.
-
-   Windows may warn that the file came from the internet. Choose **More info**,
-   then **Run anyway**. The installer sets up Python packages and downloads
-   ffmpeg, which takes a few minutes the first time.
-
-3. When it says it is done, start the app:
-   - Use the **script to vid** shortcut on your Desktop, or
-   - if the shortcut is not there, open the folder you unzipped and
-     double-click **`run.bat`** on Windows or **`run.sh`** on a Mac.
-
-A browser tab opens showing the app. Everything runs on your machine. The only
-thing that leaves it is the text of your script, sent to Microsoft's free
-voice service to be read aloud.
+This does the whole production on your own computer for free, so money is not
+the reason it never gets made.
 
 ## Use
 
-Your first project starts with a short example script already loaded, so you
-can press **Generate** straight away and watch a real video come out. After
-that, replace the script with your own.
+Your first project opens with a short example script already in it. Press
+**Generate** and watch a real video come out before you write anything of your
+own.
 
-Write a script, pick a look, add a logo and music if you want them, then press
-Generate. Download the MP4 and the subtitle file when it finishes. Each video
-is a project, and duplicating one starts the next video with the same look.
+After that: write your script, choose a voice, pick a look, add a logo and
+music if you want them, then Generate. Download the MP4 and the subtitle file
+when it finishes. Each video is a project, and duplicating one starts the next
+week's video with the same settings.
 
-Re-running is cheap: editing one line only remakes that line, and changing the
-theme reuses the whole voiceover.
+Twelve narration voices are included across American, British, Australian,
+Indian and Nigerian accents, and you can hear each one before you choose. The
+speed has three settings.
+
+Re-running is cheap. Editing one line only remakes that line. Changing the
+look reuses the whole voiceover. Changing the voice remakes the narration and
+nothing else.
 
 ## The script format
 
@@ -97,6 +107,10 @@ yours, and nobody has a claim on them.
 
 The bundled music and the character drawings are original work that ships with
 this project, with no rights held by anyone else, so a video using them is safe
-to monetise. No attribution is required.
+to put on a monetised channel. No attribution is required.
 
 The code is MIT licensed. See [LICENSE](LICENSE).
+
+## Credit
+
+Built by [Chima Ozonwoye](https://github.com/ChimaOzonwoye).

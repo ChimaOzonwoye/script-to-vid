@@ -4,6 +4,11 @@ import socket
 import sys
 import threading
 import webbrowser
+from pathlib import Path
+
+# running this file puts tools/ on the import path, not the repo root, so
+# uvicorn could not find the app package. run.sh and run.bat both start here.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import uvicorn
 
