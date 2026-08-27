@@ -19,16 +19,11 @@
   <p class="tagline">Write a script, pick a look, press Generate. Out comes a
   narrated video.</p>
 
+  {% if projects %}
   <section class="step">
     <h2><span class="stepnum">1</span>Project</h2>
-    <p class="hint">Each video is a project. Start a new one, or open one you
-    made before.</p>
-    <form class="row" method="post" action="/projects">
-      <input type="text" name="name" placeholder="Name the new video, like: credit scores"
-             required aria-label="New project name">
-      <button type="submit">Create</button>
-    </form>
-    {% if projects %}
+    <p class="hint">Each video is a project. Open one you made before, or start
+    a new one.</p>
     <ul class="projects">
       {% for p in projects %}
       <li>
@@ -37,8 +32,33 @@
       </li>
       {% endfor %}
     </ul>
-    {% endif %}
+    <form class="row" method="post" action="/projects">
+      <input type="text" name="name" placeholder="Name the next video"
+             required aria-label="New project name">
+      <button type="submit">Create</button>
+    </form>
   </section>
+
+  {% else %}
+  <section class="step">
+    <h2>Start here</h2>
+    <p>Every video you make is a <strong>project</strong>: one script, one
+    look, and the finished MP4, kept together in their own folder. You make a
+    new project for each video, and nothing is shared between them.</p>
+    <p class="hint">Your first project comes with a short example script
+    already written, so you can press Generate straight away and watch a real
+    video come out the other end. Once you have seen it work, delete the
+    example and write your own.</p>
+    <form class="row" method="post" action="/projects">
+      <input type="hidden" name="example" value="1">
+      <input type="text" name="name" value="demo" required
+             aria-label="Name for your first project">
+      <button type="submit">Create my first video</button>
+    </form>
+    <p class="hint">The first run downloads a voice for each line, so give it a
+    minute. After that, only the lines you change are made again.</p>
+  </section>
+  {% endif %}
 </main>
 </body>
 </html>

@@ -15,6 +15,7 @@ from .themes import DEFAULT_THEME
 
 ROOT = Path(__file__).resolve().parent.parent
 PROJECTS_DIR = ROOT / "projects"
+EXAMPLE_SCRIPT = ROOT / "example-script.txt"
 
 DEFAULTS = {"theme": DEFAULT_THEME, "voice": VOICE, "rate": RATE}
 
@@ -50,11 +51,13 @@ def list_projects():
     return out
 
 
-def create(name):
+def create(name, with_example=False):
     p = path_of(name)
     p.mkdir(parents=True, exist_ok=True)
     if not (p / "project.json").exists():
         save_settings(p.name, DEFAULTS)
+    if with_example and not (p / "script.txt").exists() and EXAMPLE_SCRIPT.exists():
+        save_script(p.name, EXAMPLE_SCRIPT.read_text())
     return p
 
 

@@ -28,6 +28,42 @@ def test_create_project_redirects(client):
     shutil.rmtree(projects.path_of("route-test-99"), ignore_errors=True)
 
 
+def test_first_project_is_seeded_with_the_example(client):
+    """A new user must be able to press Generate without writing a script."""
+    import shutil
+    from app.script_parser import parse
+    try:
+        r = client.post("/projects", data={"name": "seeded demo", "example": "1"},
+                        follow_redirects=False)
+        assert r.status_code == 303
+        text = projects.script("seeded-demo")
+        assert text.strip(), "the first project should open with a script in it"
+        assert parse(text)["warnings"] == []
+    finally:
+        shutil.rmtree(projects.path_of("seeded-demo"), ignore_errors=True)
+
+
+def test_project_without_example_starts_blank(client):
+    import shutil
+    try:
+        client.post("/projects", data={"name": "blank one"},
+                    follow_redirects=False)
+        assert projects.script("blank-one") == ""
+    finally:
+        shutil.rmtree(projects.path_of("blank-one"), ignore_errors=True)
+
+
+def test_empty_state_explains_projects_and_offers_the_example(client, tmp_path,
+                                                              monkeypatch):
+    """With no projects yet, the page has to do the explaining itself."""
+    empty = tmp_path / "projects"
+    empty.mkdir()
+    monkeypatch.setattr(projects, "PROJECTS_DIR", empty)
+    body = client.get("/").text
+    assert "project" in body.lower()
+    assert 'name="example"' in body, "the first-run form should seed the example"
+
+
 def test_create_project_needs_a_name(client):
     r = client.post("/projects", data={"name": "!!!"})
     assert r.status_code == 400

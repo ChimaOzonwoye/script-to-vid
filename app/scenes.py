@@ -128,26 +128,43 @@ def scene_bubbles(fig, b, T):
 
 
 def scene_split(fig, b, T):
-    """Before on the left, after on the right."""
+    """Before on the left, after on the right.
+
+    The two figures carry the contrast on their own, so a split works for any
+    subject. Props are drawn only when the script asks for one, scattered on
+    the left and gathered on the right.
+    """
     ax = _stage(fig)
     ch.ground(ax, GROUND_Y)
     ax.plot([0, 0], [GROUND_Y, 14.5], color=T.grid, lw=3, zorder=1)
 
-    _character(ax, {"cast_i": b.get("cast_i", 0)}, T, x=-11.5, s=1.35,
+    cast_i = b.get("cast_i", 0)
+    lx, rx = (-11.5, 11.5) if b.get("prop") else (-7.0, 7.0)
+    _character(ax, {"cast_i": cast_i}, T, x=lx, s=1.35,
                pose="shrug", expr="worried")
-    rng = np.random.default_rng(11)
-    for x, y in zip(rng.uniform(-7.5, -2.0, 6), rng.uniform(0.6, 2.2, 6)):
-        ch.prop_coin(ax, x, GROUND_Y + y, r=0.5)
-
-    _character(ax, {"cast_i": b.get("cast_i", 0)}, T, x=11.5, s=1.35,
+    _character(ax, {"cast_i": cast_i}, T, x=rx, s=1.35,
                pose="cheer", expr="happy")
-    ch.prop_jar(ax, 4.5, GROUND_Y, s=1.6, fill=0.8)
-    ch.prop_coin_stack(ax, 7.5, GROUND_Y + 0.55, n=4, r=0.5)
 
+    prop = b.get("prop")
+    if prop in ("coin", "coins"):
+        rng = np.random.default_rng(11)
+        for x, y in zip(rng.uniform(-7.5, -2.0, 6), rng.uniform(0.6, 2.2, 6)):
+            ch.prop_coin(ax, x, GROUND_Y + y, r=0.5)
+        ch.prop_coin_stack(ax, 6.0, GROUND_Y + 0.55, n=4, r=0.5)
+    elif prop == "jar":
+        ch.prop_jar(ax, -5.0, GROUND_Y, s=1.6, fill=0.1)
+        ch.prop_jar(ax, 5.0, GROUND_Y, s=1.6, fill=0.85)
+    elif prop == "piggy":
+        ch.prop_piggy(ax, -5.0, GROUND_Y, s=1.3)
+        ch.prop_piggy(ax, 5.0, GROUND_Y, s=1.3, label="FULL")
+
+    # each label is centred over its own half and shrunk to stay inside it,
+    # so two long labels cannot meet in the middle
     for x, text, col in ((-8.0, b.get("left", "Before"), T.dim),
                          (8.0, b.get("right", "After"), T.a2)):
-        ax.text(x, 15.6, text.upper(), ha="center", va="center",
-                fontsize=30, color=col, fontweight="bold")
+        t = ax.text(x, 15.6, text.upper(), ha="center", va="center",
+                    fontsize=30, color=col, fontweight="bold")
+        _fit(fig, t, 860)   # a half is 960 px wide at this stage scale
     _caption(fig, T, b.get("caption"))
 
 

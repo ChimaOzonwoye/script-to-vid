@@ -28,10 +28,18 @@ SLIDES = ("sweep", "title", "gauge", "callout", "timeline", "jars", "terms",
 SCENES = ("character", "duo", "bubbles", "split", "chart")
 
 
+# a caption cut to a word limit often lands on a word that cannot end a
+# phrase, giving captions like "START WITH EGGS STRAIGHT FROM THE"
+_DANGLING = {"a", "an", "and", "as", "at", "but", "by", "for", "from", "in",
+             "into", "of", "on", "or", "so", "than", "that", "the", "then",
+             "to", "with", "your"}
+
+
 def _auto_headline(say, limit=6):
-    words = say.replace("\n", " ").split()
-    head = " ".join(words[:limit]).rstrip(".,;:!?")
-    return head.upper()
+    words = say.replace("\n", " ").split()[:limit]
+    while len(words) > 2 and words[-1].strip(".,;:!?").lower() in _DANGLING:
+        words.pop()
+    return " ".join(words).rstrip(".,;:!?").upper()
 
 
 def _split_direction(s):

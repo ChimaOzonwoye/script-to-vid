@@ -1,20 +1,25 @@
-# Your credit score starts early
+# How to boil an egg
 
-> gauge
+> character: happy, cheer
+> caption: Cover them by an inch
 
-Here's the first thing nobody told me: your credit score isn't something you
-deal with later. It starts building the moment you enter the system.
+Start with eggs straight from the fridge, and a pan deep enough to cover them
+by about an inch of water.
 
-> character: worried, think, triangle
-> caption: No credit is not good credit
+> bubbles: soft?, medium?, hard?
+> caption: One pan, three results
 
-I used to think avoiding debt meant I had good credit. But no debt isn't the
-same as good credit. You need a track record.
+Six minutes gives you a runny yolk. Eight is soft but set. Ten and it is firm
+all the way through.
 
-# Save first, spend second
+> split: Straight from the pan | Into cold water
+> caption: Stop the cooking
 
-> character: happy, cheer, square
-> prop: piggy
+Lift them out into cold water as soon as the time is up. Left in the hot pan
+they carry on cooking, and that grey ring around the yolk is what happens next.
 
-Saving whatever happens to be left at the end of the month is backwards.
-Decide your savings amount first, like a bill you owe yourself.
+> character: neutral, offer
+> caption: Peel from the wide end
+
+Tap the wide end first. There is a pocket of air under the shell there, so it
+comes away in bigger pieces.

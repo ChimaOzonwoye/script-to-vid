@@ -94,11 +94,11 @@ def home(request: Request):
 
 
 @app.post("/projects")
-def new_project(name: str = Form(...)):
+def new_project(name: str = Form(...), example: str = Form("")):
     slug = projects.slugify(name)
     if not slug:
         return fail("The project needs a name. Letters and numbers are fine.")
-    projects.create(slug)
+    projects.create(slug, with_example=bool(example))
     return RedirectResponse(f"/p/{slug}", status_code=303)
 
 
@@ -294,7 +294,7 @@ def _render_worker(name, beats, theme, voice, rate):
         n, label = STAGES[stage]
         beat = f" ({min(done + 1, total)} of {total})" if total > 1 else ""
         status.update(stage=stage, done=done, total=total,
-                      message=f"Stage {n} of 4 — {label}{beat}")
+                      message=f"Stage {n} of 4: {label}{beat}")
 
     try:
         r = engine.render_video(projects.path_of(name), beats, theme,

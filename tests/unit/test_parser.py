@@ -6,13 +6,15 @@ EXAMPLE = (Path(__file__).resolve().parents[2] / "example-script.txt").read_text
 
 
 def test_example_script():
+    """The bundled example is what a new project opens with, so it has to
+    parse cleanly and use a spread of directions."""
     r = parse(EXAMPLE)
     assert r["warnings"] == []
     visuals = [b["visual"] for b in r["beats"]]
-    assert visuals == ["chapter", "gauge", "scene_character",
-                       "chapter", "scene_character"]
+    assert visuals[0] == "chapter"
     assert r["beats"][0]["num"] == "01"
-    assert r["beats"][3]["num"] == "02"
+    assert {"scene_character", "scene_bubbles", "scene_split"} <= set(visuals)
+    assert all(b.get("caption") or b.get("headline") for b in r["beats"])
     assert r["words"] > 0
 
 
