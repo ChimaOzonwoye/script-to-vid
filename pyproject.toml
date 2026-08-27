@@ -1,0 +1,5 @@
+[tool.pytest.ini_options]
+# `pytest` on its own does not put the working directory on the import path;
+# only `python -m pytest` does. Without this the suite imports app fine
+# locally and fails in CI with "No module named 'app'".
+pythonpath = ["."]
