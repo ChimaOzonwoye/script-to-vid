@@ -1,0 +1,8 @@
+work/
+out/
+__pycache__/
+*.pyc
+.venv/
+projects/
+logo.png
+music.mp3
