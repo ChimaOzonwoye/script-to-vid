@@ -1,36 +1,32 @@
-#!/usr/bin/env python3
-"""
-Builds "5 Things I Wish I Knew About Money" as a narrated explainer video.
+"""Turns a list of beats into a narrated explainer video.
 
 No API keys. No paid services. Everything runs locally except the TTS call,
 which uses Microsoft's free edge-tts endpoint.
 
-Pipeline:
-  1. Each beat of the script is spoken by edge-tts  -> beat_NN.mp3
+Pipeline, per render:
+  1. Each beat's narration is spoken by edge-tts   -> cache/voice/<hash>.mp3
   2. Real audio duration is measured with ffprobe
   3. A 1920x1080 slide is drawn for each beat with matplotlib
-  4. ffmpeg pairs slide + audio into a fast intermediate segment
-     (slow zoom, fade in and out on video and audio)
+  4. ffmpeg pairs slide + audio into an intermediate segment
+     (slow zoom, fade in and out)                  -> cache/segments/<hash>.mp4
   5. Segments are joined, then ONE final encode adds the corner logo,
-     optional music, and a subscribe end card
+     optional music, and the end card              -> out/final.mp4
   6. An .srt subtitle file is written alongside it
 
-Run:  python make_video3.py [cream|paper|sky|mint]
-Out:  out/final.mp4  and  out/final.srt
-
-Optional files, dropped in the same folder:
-  logo.png    masked to a circle, shown top right for the whole video
-              and full size on the outro card
-  music.mp3   mixed in quietly under the voice (voice level is preserved)
+Voice files are keyed on the line text, the voice and the speaking rate, so
+editing one line regenerates one line. Segments are keyed on everything the
+segment depends on (the beat, the theme, the audio), so a theme change
+redraws every slide but never goes back to the network.
 """
 
 import asyncio
+import hashlib
 import json
 import os
 import shutil
 import subprocess
-import sys
 import textwrap
+from dataclasses import asdict
 from pathlib import Path
 
 import matplotlib
@@ -42,23 +38,15 @@ import numpy as np
 from matplotlib.colors import to_rgb
 from PIL import Image
 
-from themes import THEMES, DEFAULT_THEME, mix
-
-# ----------------------------------------------------------------------
-# CONFIG
-# ----------------------------------------------------------------------
+from .themes import mix
 
 VOICE = "en-US-AndrewMultilingualNeural"   # warm, conversational
 RATE = "-4%"                                # slightly slowed for the "neighbor" tone
 W, H = 1920, 1080
 FPS = 30
-OUT = Path("out")
-WORK = Path("work")
 
-LOGO = "logo.png"
 LOGO_CORNER_PX = 150        # height of the small corner logo
 LOGO_MARGIN_PX = 40         # distance from the top and right edges
-MUSIC = "music.mp3"
 MUSIC_DB = -20        # bed level when nobody is speaking
 DUCK_RATIO = 6        # how hard the voice pushes the music down (~7 dB)
 DUCK_THRESHOLD = 0.03 # voice level at which ducking starts
@@ -71,106 +59,14 @@ PRESCALE = 2                # render the zoom at 2x then shrink, kills pixel jit
 BREATH = 0.5                # seconds of pause after each beat
 TTS_PARALLEL = 4            # how many voice requests to run at once
 
-# ----------------------------------------------------------------------
-# THE SCRIPT
-# One beat = one slide + one chunk of narration.
-# Edit the "say" text freely; nothing below depends on the wording.
-# ----------------------------------------------------------------------
+WPM = 155                   # matches the default voice at the default rate
 
-BEATS = [
-    # ---- HOOK ----
-    dict(visual="sweep",
-         say="Nobody sat me down and explained money. I had to figure it out the hard "
-             "way, through mistakes that cost me years, so you don't have to make them "
-             "too."),
+ENGINE_V = "1"              # bump to invalidate every cached segment
 
-    dict(visual="title", headline="5 COSTLY\nMONEY MISTAKES",
-         sub="Things nobody sat me down and explained",
-         say="Five costly money mistakes."),
 
-    # ---- LESSON 1 ----
-    dict(visual="chapter", num="01", headline="YOUR CREDIT SCORE\nSTARTS EARLY",
-         say="Here's the first thing nobody told me. Your credit score isn't something "
-             "you deal with later. It starts building the moment you step into a new "
-             "financial system, and if you wait, you're already behind."),
+class RenderError(Exception):
+    """A stage of the pipeline failed. str() is safe to show a user."""
 
-    dict(visual="gauge", headline="IT'S ALREADY RUNNING",
-         say="I used to think that avoiding debt meant I had good credit. But no debt "
-             "isn't the same as good credit."),
-
-    dict(visual="callout", headline="NO CREDIT  ≠  GOOD CREDIT",
-         say="You actually need a track record of using credit responsibly and paying "
-             "it back on time."),
-
-    dict(visual="timeline", headline="THE CLOCK STARTS AT DAY ONE",
-         say="Waiting to stay safe can leave you with zero credit history, which makes "
-             "getting an apartment or a loan ten times harder."),
-
-    # ---- LESSON 2 ----
-    dict(visual="chapter", num="02", headline='"SAVE WHAT\'S LEFT OVER"\nIS NOT A PLAN',
-         say="Second lesson. Saving whatever happens to be left at the end of the month "
-             "is backwards. That's not a plan. That's an accident waiting to happen."),
-
-    dict(visual="jars", headline="FLIP THE ORDER",
-         say="What actually works is deciding your savings amount first. Treat your "
-             "savings like a non-negotiable bill you have to pay on payday."),
-
-    dict(visual="callout", headline="PAY YOURSELF FIRST",
-         say="Let whatever remains after that be your actual spending money. Flip the "
-             "order, and everything changes."),
-
-    # ---- LESSON 3 ----
-    dict(visual="chapter", num="03", headline="NEW FINANCIAL SYSTEMS\nTAKE TIME",
-         say="If you've ever moved somewhere new, a new state, a new country, or just a "
-             "new stage of life, you know financial systems don't come with an "
-             "instruction manual."),
-
-    dict(visual="terms", headline="A BRAND NEW VOCABULARY",
-         say="Terms like A.P.R., credit utilization, or escrow get thrown at you like "
-             "you're already supposed to know them."),
-
-    dict(visual="path", headline="YOU'RE NOT BAD WITH MONEY",
-         sub="You're learning a language.",
-         say="It is completely normal to feel lost at first. You aren't bad with money. "
-             "You're just learning a brand new vocabulary."),
-
-    # ---- LESSON 4 ----
-    dict(visual="chapter", num="04", headline="BORING CONSISTENCY BEATS\nEXCITING RISKS",
-         say="Fourth lesson. The boring stuff always wins. Not the hot stock tip from a "
-             "friend. Not the trending side hustle everyone's talking about this week."),
-
-    dict(visual="growth", headline="SMALL, AUTOMATIC, EVERY PAYCHECK",
-         say="Consistently setting aside a small, manageable amount automatically every "
-             "single paycheck. That's what actually builds wealth."),
-
-    dict(visual="callout", headline="AUTOMATION  >  EMOTION",
-         say="Quiet consistency isn't exciting content, but it works."),
-
-    # ---- LESSON 5 ----
-    dict(visual="chapter", num="05", headline="ASKING QUESTIONS\nIS STRENGTH",
-         say="And finally. Asking questions about money isn't embarrassing."),
-
-    dict(visual="quiet", headline="SILENCE IS EXPENSIVE",
-         say="I used to nod along in conversations I didn't understand because I didn't "
-             "want to look behind. That silence cost me far more than just asking would "
-             "have."),
-
-    dict(visual="callout", headline="NEVER ASSUME. ALWAYS ASK.",
-         say="There are no basic or silly questions when it comes to your financial "
-             "future."),
-
-    # ---- RECAP ----
-    dict(visual="recap", headline="THE FIVE",
-         say="To wrap it up. Build your credit early. Save first instead of last. Give "
-             "yourself grace when learning new systems. Pick boring consistency over "
-             "hype. And never be afraid to ask questions."),
-
-    # ---- OUTRO ----
-    dict(visual="outro", headline="NEXT WEEK", sub="How credit scores actually work",
-         say="Next week, we're breaking down step by step how credit scores actually "
-             "work, and how to build yours from scratch. Hit subscribe so you don't "
-             "miss it, and I'll see you next door."),
-]
 
 # ----------------------------------------------------------------------
 # DRAWING HELPERS
@@ -225,15 +121,15 @@ def _glow(txt, color, n=6):
 def make_round_logo(src, dst, size):
     """Crop the square logo to a circle with a transparent outside.
 
-    The source PNG has solid black corners. Over the charcoal background those
-    show as a dark square, so we build an alpha channel from the distance to
-    the centre and write a real RGBA file.
+    Source PNGs often have opaque corners, which show as a dark square over
+    the page, so we build an alpha channel from the distance to the centre
+    and write a real RGBA file.
     """
     im = Image.open(src).convert("RGBA").resize((size, size), Image.LANCZOS)
     yy, xx = np.mgrid[0:size, 0:size]
     c = (size - 1) / 2
     r = np.hypot(xx - c, yy - c)
-    edge = size / 2 - 1.5                       # just inside the gold ring
+    edge = size / 2 - 1.5
     alpha = np.clip((edge - r) / 1.5 + 1, 0, 1)  # 1.5 px soft edge
     a = np.array(im)
     a[..., 3] = (a[..., 3] * alpha).astype(np.uint8)
@@ -242,6 +138,8 @@ def make_round_logo(src, dst, size):
 
 # ----------------------------------------------------------------------
 # SLIDES
+# Each takes (fig, beat, theme). Text content comes from the beat, with the
+# defaults the first video shipped with.
 # ----------------------------------------------------------------------
 
 def v_sweep(fig, b, T):
@@ -256,14 +154,14 @@ def v_sweep(fig, b, T):
     ax.imshow(field, aspect="auto", cmap=cmap, extent=[0, 1, 0, 1],
               vmin=0, vmax=1.35, interpolation="bilinear")
     ax.set_xlim(0, 1); ax.set_ylim(0, 1)
-    fig.text(0.5, 0.53, "Nobody sat me down", ha="center", va="center",
-             fontsize=64, color=T.ink, fontweight="bold")
-    fig.text(0.5, 0.40, "and explained money.", ha="center", va="center",
-             fontsize=64, color=T.ink, fontweight="bold")
+    lines = (b.get("headline") or "").split("\n")[:2] or [""]
+    ys = [0.53, 0.40] if len(lines) > 1 else [0.47]
+    for line, y in zip(lines, ys):
+        fig.text(0.5, y, line, ha="center", va="center",
+                 fontsize=64, color=T.ink, fontweight="bold")
 
 
 def v_title(fig, b, T):
-    ax = fig.add_axes([0, 0.44, 1, 0.02]); ax.axis("off")
     _headline(fig, T, b["headline"], y=0.70, size=96)
     _rule(fig, T, y=0.40, w=0.16)
     _sub(fig, T, b.get("sub"), y=0.31, size=32)
@@ -297,13 +195,12 @@ def v_gauge(fig, b, T):
         col = tuple(c1[k] * (1 - f) + c2[k] * f for k in range(3))
         ax.plot(fill[i:i + 2], [1, 1], color=col, lw=40, solid_capstyle="butt")
     ax.set_ylim(0, 1.22)
-    t = fig.text(0.5, 0.30, "742", ha="center", va="center",
+    t = fig.text(0.5, 0.30, b.get("value", "742"), ha="center", va="center",
                  fontsize=104, color=T.a2, fontweight="bold")
     _glow(t, T.a1_pale, n=9)
     fig.text(0.26, 0.31, "300", ha="center", fontsize=24, color=T.dim)
     fig.text(0.74, 0.31, "850", ha="center", fontsize=24, color=T.dim)
-    fig.text(0.5, 0.17, "Building from the day you start, not the day you need it",
-             ha="center", fontsize=24, color=T.dim)
+    _sub(fig, T, b.get("caption"), y=0.17, size=24)
 
 
 def v_callout(fig, b, T):
@@ -321,6 +218,19 @@ def v_callout(fig, b, T):
              fontsize=size, color=T.a2_hi, fontweight="bold")
 
 
+def v_caption(fig, b, T):
+    """A plain caption slide: one large centred statement."""
+    text = b.get("caption") or b.get("headline") or ""
+    t = fig.text(0.5, 0.52, "\n".join(textwrap.wrap(text, 26)), ha="center",
+                 va="center", fontsize=64, color=T.ink, fontweight="bold",
+                 linespacing=1.25)
+    fig.canvas.draw()
+    w = t.get_window_extent(fig.canvas.get_renderer()).width
+    if w > HEAD_MAX_W:
+        t.set_fontsize(max(30, 64 * HEAD_MAX_W / w))
+    _rule(fig, T, y=0.24, w=0.10)
+
+
 def v_timeline(fig, b, T):
     _headline(fig, T, b["headline"])
     ax = _axes(fig, T)
@@ -335,8 +245,8 @@ def v_timeline(fig, b, T):
     ax.set_ylabel("Score", color=T.dim, fontsize=22, labelpad=12)
     ax.set_ylim(250, 900)
     ax.set_xticks([0, 24, 48, 72, 96, 120])
-    fig.text(0.5, 0.09, "Illustrative shape, not a prediction of your score",
-             ha="center", fontsize=19, color=T.dim)
+    _sub(fig, T, b.get("caption",
+         "Illustrative shape, not a prediction of your score"), y=0.09, size=19)
 
 
 def v_jars(fig, b, T):
@@ -345,17 +255,15 @@ def v_jars(fig, b, T):
     ax.set_xlim(0, 10); ax.set_ylim(0, 6)
     rng = np.random.default_rng(7)
 
-    # left: scattered
-    ax.text(2.5, 5.4, "Save what's left", ha="center", fontsize=30, color=T.dim,
-            fontweight="bold")
+    ax.text(2.5, 5.4, b.get("left", "Save what's left"), ha="center",
+            fontsize=30, color=T.dim, fontweight="bold")
     xs = rng.uniform(0.6, 4.4, 26); ys = rng.uniform(0.4, 4.2, 26)
     ax.scatter(xs, ys, s=340, color=T.a1_pale, alpha=0.9, edgecolors=T.dim, lw=1.5)
 
     ax.plot([5, 5], [0.2, 5.0], color=T.grid, lw=2.5)
 
-    # right: stacked in a jar
-    ax.text(7.5, 5.4, "Pay yourself first", ha="center", fontsize=30,
-            color=T.a2, fontweight="bold")
+    ax.text(7.5, 5.4, b.get("right", "Pay yourself first"), ha="center",
+            fontsize=30, color=T.a2, fontweight="bold")
     ax.plot([6.3, 6.3, 8.7, 8.7], [4.4, 0.5, 0.5, 4.4], color=T.a2, lw=4, alpha=0.85)
     for row in range(7):
         for col in range(3):
@@ -363,19 +271,20 @@ def v_jars(fig, b, T):
                        color=T.a1, edgecolors=T.a1_hi, lw=1.5, zorder=3)
 
 
+_TERM_SPOTS = [(0.22, 0.56), (0.50, 0.62), (0.78, 0.55), (0.34, 0.36), (0.68, 0.34)]
+
+
 def v_terms(fig, b, T):
     _headline(fig, T, b["headline"])
-    spots = [(0.22, 0.56, "APR?"), (0.50, 0.62, "FICO?"), (0.78, 0.55, "ESCROW?"),
-             (0.34, 0.36, "UTILIZATION?"), (0.68, 0.34, "APY?")]
-    for i, (x, y, word) in enumerate(spots):
+    words = b.get("words") or ["APR?", "FICO?", "ESCROW?", "UTILIZATION?", "APY?"]
+    for i, ((x, y), word) in enumerate(zip(_TERM_SPOTS, words)):
         col = T.a2 if i % 2 else T.a1_hi
         t = fig.text(x, y, word, ha="center", va="center", fontsize=44,
                      color=col, fontweight="bold")
         t.set_bbox(dict(boxstyle="round,pad=0.45",
                         facecolor=T.a2_pale if i % 2 else T.a1_pale,
                         edgecolor="none"))
-    fig.text(0.5, 0.17, "None of this was ever explained",
-             ha="center", fontsize=28, color=T.dim)
+    _sub(fig, T, b.get("caption"), y=0.17, size=28)
 
 
 def v_path(fig, b, T):
@@ -463,27 +372,21 @@ def v_growth(fig, b, T):
     ax.set_xticks([1, 5, 10, 15, 20])
     ax.text(1.2, vals[-1] / 1000 * 0.86, f"${vals[-1]:,.0f}\nafter 20 years",
             fontsize=28, color=T.a2_hi, fontweight="bold", va="top")
-    fig.text(0.5, 0.11, "$250/month at a 7% average annual return, illustrative only",
-             ha="center", fontsize=19, color=T.dim)
+    _sub(fig, T, b.get("caption",
+         "$250/month at a 7% average annual return, illustrative only"),
+         y=0.11, size=19)
 
 
 def v_quiet(fig, b, T):
     _headline(fig, T, b["headline"], y=0.62, size=76)
     _rule(fig, T, y=0.44, w=0.12)
-    fig.text(0.5, 0.34, "Nodding along is not understanding.",
-             ha="center", fontsize=32, color=T.a2)
+    _sub(fig, T, b.get("sub"), y=0.34, size=32, color=T.a2)
 
 
 def v_recap(fig, b, T):
     _headline(fig, T, b["headline"], y=0.88, size=56, color=T.a1_hi)
-    items = [
-        "Build your credit early",
-        "Save first, not last",
-        "Give yourself grace",
-        "Boring beats hype",
-        "Always ask",
-    ]
-    for i, it in enumerate(items):
+    items = b.get("items") or []
+    for i, it in enumerate(items[:6]):
         y = 0.66 - i * 0.115
         fig.text(0.30, y, f"0{i + 1}", ha="right", va="center",
                  fontsize=38, color=T.a2 if i % 2 else T.a1_hi, fontweight="bold")
@@ -491,20 +394,18 @@ def v_recap(fig, b, T):
 
 
 def v_outro(fig, b, T):
-    big = WORK / "logo_big.png"
-    if big.exists():
+    big = b.get("logo_big")
+    if big and Path(big).exists():
         img = mpimg.imread(big)
         # 62% of frame height, centred horizontally, sitting in the upper half
         h = 0.62
         w = h * H / W
         ax = fig.add_axes([0.5 - w / 2, 0.34, w, h]); ax.axis("off")
         ax.imshow(img)
-    else:
-        t = fig.text(0.5, 0.68, "NDN", ha="center", va="center",
-                     fontsize=110, color=T.a1_hi, fontweight="bold")
+    elif b.get("brand"):
+        t = fig.text(0.5, 0.64, b["brand"], ha="center", va="center",
+                     fontsize=90, color=T.a1_hi, fontweight="bold")
         _glow(t, T.a1_pale, n=10)
-        fig.text(0.5, 0.575, "NEXT DOOR NEIGHBOR", ha="center",
-                 fontsize=24, color=T.dim)
     _rule(fig, T, y=0.30, w=0.10)
     _headline(fig, T, b["headline"], y=0.265, size=36, color=T.dim)
     _sub(fig, T, b.get("sub"), y=0.175, size=40, color=T.ink)
@@ -515,15 +416,17 @@ def v_outro(fig, b, T):
 
 VISUALS = {
     "sweep": v_sweep, "title": v_title, "chapter": v_chapter, "gauge": v_gauge,
-    "callout": v_callout, "timeline": v_timeline, "jars": v_jars, "terms": v_terms,
-    "path": v_path, "growth": v_growth, "quiet": v_quiet, "recap": v_recap,
-    "outro": v_outro,
+    "callout": v_callout, "caption": v_caption, "timeline": v_timeline,
+    "jars": v_jars, "terms": v_terms, "path": v_path, "growth": v_growth,
+    "quiet": v_quiet, "recap": v_recap, "outro": v_outro,
 }
 
 
 def render_slide(beat, path, T):
+    from . import scenes
     fig = _fig(T)
-    VISUALS[beat["visual"]](fig, beat, T)
+    draw = VISUALS.get(beat["visual"]) or scenes.VISUALS[beat["visual"]]
+    draw(fig, beat, T)
     fig.savefig(path, facecolor=T.bg, dpi=100)
     plt.close(fig)
 
@@ -532,17 +435,55 @@ def render_slide(beat, path, T):
 # AUDIO
 # ----------------------------------------------------------------------
 
-async def _speak_all(beats, paths):
+def voice_key(text, voice, rate):
+    return hashlib.sha1(f"{text}\x1f{voice}\x1f{rate}".encode()).hexdigest()
+
+
+def _fake_voice(text, path):
+    """Stand-in used when STV_FAKE_TTS is set: a quiet tone the length the
+    real line would be. CI machines can't always reach the voice service,
+    and tests must not depend on it."""
+    d = max(1.0, len(text.split()) / (WPM / 60))
+    run(["ffmpeg", "-y", "-f", "lavfi", "-i",
+         f"sine=frequency=440:duration={d:.2f}", "-af", "volume=0.2", str(path)])
+
+
+async def _speak_all(lines, paths, voice, rate, on_line=None):
     import edge_tts
     sem = asyncio.Semaphore(TTS_PARALLEL)
 
-    async def one(beat, p):
+    async def one(text, p):
         async with sem:
-            c = edge_tts.Communicate(beat["say"], VOICE, rate=RATE)
+            c = edge_tts.Communicate(text, voice, rate=rate)
             await c.save(str(p))
-            print(f"  voiced {p.name}")
+            if on_line:
+                on_line()
 
-    await asyncio.gather(*(one(b, p) for b, p in zip(beats, paths)))
+    await asyncio.gather(*(one(t, p) for t, p in zip(lines, paths)))
+
+
+def speak_missing(lines, paths, voice, rate, on_line=None):
+    todo = [(t, p) for t, p in zip(lines, paths) if not p.exists()]
+    if not todo:
+        return
+    if os.environ.get("STV_FAKE_TTS"):
+        for t, p in todo:
+            _fake_voice(t, p)
+            if on_line:
+                on_line()
+        return
+    try:
+        asyncio.run(_speak_all([t for t, _ in todo], [p for _, p in todo],
+                               voice, rate, on_line))
+    except Exception as e:
+        # partial files must not poison the cache
+        for _, p in todo:
+            if p.exists() and p.stat().st_size == 0:
+                p.unlink()
+        raise RenderError(
+            "Could not reach the voice service. Check your internet "
+            "connection and press Generate again; finished lines are kept "
+            f"and will not be redone. ({type(e).__name__})") from e
 
 
 def duration(path):
@@ -553,6 +494,11 @@ def duration(path):
     return float(json.loads(out)["format"]["duration"])
 
 
+def estimate_seconds(beats):
+    words = sum(len(b.get("say", "").split()) for b in beats)
+    return words / WPM * 60 + len(beats) * (LEAD_SILENCE + BREATH)
+
+
 # ----------------------------------------------------------------------
 # BUILD
 # ----------------------------------------------------------------------
@@ -560,10 +506,11 @@ def duration(path):
 def run(cmd):
     r = subprocess.run(cmd, capture_output=True, text=True)
     if r.returncode != 0:
-        sys.exit(f"command failed:\n  {' '.join(cmd)}\n\n{r.stderr[-3000:]}")
+        raise RenderError(f"command failed:\n  {' '.join(map(str, cmd))}\n\n"
+                          f"{r.stderr[-3000:]}")
 
 
-def build_music_bed(src, dst, need):
+def build_music_bed(src, dst, need, work):
     """Make a music track at least `need` seconds long.
 
     The song is shorter than the video, so it has to repeat. A hard repeat
@@ -576,12 +523,12 @@ def build_music_bed(src, dst, need):
         shutil.copy(src, dst)
         return dst
 
-    cur = WORK / "bed_00.wav"
+    cur = work / "bed_00.wav"
     run(["ffmpeg", "-y", "-i", str(src), "-ar", "48000", "-ac", "2", str(cur)])
     total, n = have, 0
     while total < need:
         n += 1
-        nxt = WORK / f"bed_{n:02d}.wav"
+        nxt = work / f"bed_{n:02d}.wav"
         run(["ffmpeg", "-y", "-i", str(cur), "-i", str(src),
              "-filter_complex",
              f"[1:a]aresample=48000,aformat=channel_layouts=stereo[b];"
@@ -589,7 +536,6 @@ def build_music_bed(src, dst, need):
              "-map", "[a]", "-ar", "48000", "-ac", "2", str(nxt)])
         cur = nxt
         total += have - LOOP_XFADE
-        print(f"  music bed now {total:.0f}s of {need:.0f}s")
     shutil.move(str(cur), dst)
     return dst
 
@@ -600,42 +546,107 @@ def srt_time(t):
     return f"{int(h):02d}:{int(m):02d}:{int(s):02d},{int((s % 1) * 1000):03d}"
 
 
-def main(theme_name=DEFAULT_THEME):
+def _file_hash(path):
+    return hashlib.sha1(Path(path).read_bytes()).hexdigest() if Path(path).exists() else "none"
+
+
+def _prepared(beats, project):
+    """Copy of the beats with everything a slide depends on made explicit,
+    so hashing a beat covers all of its inputs."""
+    out = []
+    logo = project / "logo.png"
+    for b in beats:
+        b = dict(b)
+        if b["visual"] == "outro" and logo.exists():
+            b["logo_hash"] = _file_hash(logo)
+        out.append(b)
+    return out
+
+
+def segment_key(beat, theme, audio_key):
+    ident = json.dumps([ENGINE_V, beat, asdict(theme), audio_key], sort_keys=True)
+    return hashlib.sha1(ident.encode()).hexdigest()
+
+
+def plan(project, beats, theme, voice=VOICE, rate=RATE):
+    """What a render would reuse, so the page can say it before Generate."""
+    project = Path(project)
+    beats = _prepared(beats, project)
+    vdir = project / "cache" / "voice"
+    sdir = project / "cache" / "segments"
+    voices_cached = segs_cached = 0
+    for b in beats:
+        vk = voice_key(b["say"], voice, rate)
+        if (vdir / f"{vk}.mp3").exists():
+            voices_cached += 1
+        if (sdir / f"{segment_key(b, theme, vk)}.mp4").exists():
+            segs_cached += 1
+    return {"beats": len(beats),
+            "voices_cached": voices_cached,
+            "segments_cached": segs_cached}
+
+
+def render_video(project, beats, theme, voice=VOICE, rate=RATE, progress=None):
+    """Render `beats` into project/out/final.mp4 and final.srt.
+
+    `progress(stage, done, total)` is called as work happens; stage is one of
+    "voice", "slides", "segments", "final".
+    """
     if not shutil.which("ffmpeg"):
-        sys.exit("ffmpeg not found. Run: sudo apt update && sudo apt install -y ffmpeg")
+        raise RenderError("ffmpeg was not found. Run the installer again, or "
+                          "install ffmpeg and restart the app.")
 
-    T = THEMES[theme_name]
+    project = Path(project)
+    out_dir = project / "out"
+    cache = project / "cache"
+    work = cache / "work"
+    vdir = cache / "voice"
+    sdir = cache / "segments"
+    for d in (out_dir, work, vdir, sdir):
+        d.mkdir(parents=True, exist_ok=True)
 
-    for d in (OUT, WORK):
-        d.mkdir(exist_ok=True)
+    def report(stage, done, total):
+        if progress:
+            progress(stage, done, total)
 
-    have_logo = Path(LOGO).exists()
-    if have_logo:
-        make_round_logo(LOGO, WORK / "logo_big.png", 1080)
-        make_round_logo(LOGO, WORK / "logo_small.png", LOGO_CORNER_PX)
-    else:
-        print(f"  note: {LOGO} not found, using text fallback on the outro")
+    beats = _prepared(beats, project)
+    logo = project / "logo.png"
+    music = project / "music.mp3"
+    if logo.exists():
+        make_round_logo(logo, work / "logo_big.png", 1080)
+        make_round_logo(logo, work / "logo_small.png", LOGO_CORNER_PX)
 
-    audio = [WORK / f"beat_{i:02d}.mp3" for i in range(len(BEATS))]
-    print("1/4  generating voiceover")
-    asyncio.run(_speak_all(BEATS, audio))
+    lines = [b["say"] for b in beats]
+    keys = [voice_key(t, voice, rate) for t in lines]
+    paths = [vdir / f"{k}.mp3" for k in keys]
+    done = sum(1 for p in paths if p.exists())
+    report("voice", done, len(beats))
+    state = {"done": done}
 
-    print("2/4  drawing slides")
-    slides = []
-    for i, beat in enumerate(BEATS):
-        p = WORK / f"slide_{i:02d}.png"
-        render_slide(beat, p, T)
-        slides.append(p)
+    def on_line():
+        state["done"] += 1
+        report("voice", state["done"], len(beats))
 
-    print("3/4  building segments")
-    segs, clock, srt = [], 0.0, []
-    outro_start = None
-    for i, (beat, img, snd) in enumerate(zip(BEATS, slides, audio)):
+    speak_missing(lines, paths, voice, rate, on_line)
+
+    seg_keys = [segment_key(b, theme, k) for b, k in zip(beats, keys)]
+    segs = [sdir / f"{sk}.mp4" for sk in seg_keys]
+    missing = [i for i, s in enumerate(segs) if not s.exists()]
+
+    for j, i in enumerate(missing):
+        report("slides", j, len(missing))
+        b = beats[i]
+        if b["visual"] == "outro":
+            b = {**b, "logo_big": str(work / "logo_big.png")}
+        render_slide(b, work / f"slide_{i:02d}.png", theme)
+    report("slides", len(missing), len(missing))
+
+    for j, i in enumerate(missing):
+        report("segments", j, len(missing))
+        img = work / f"slide_{i:02d}.png"
+        snd = paths[i]
         spoken = duration(snd)
         d = LEAD_SILENCE + spoken + BREATH
-        if beat["visual"] == "outro":
-            outro_start = clock
-        seg = WORK / f"seg_{i:02d}.mp4"
         frames = int(round(d * FPS))
         # zoompan works in whole pixels, so at 1080p the crop jumps a pixel at a
         # time and the slide looks shaky. Scaling up first makes each step a
@@ -644,7 +655,7 @@ def main(theme_name=DEFAULT_THEME):
                 f"zoompan=z='min(zoom+{ZOOM_RATE},1.06)':d={frames}"
                 f":x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s={W}x{H}:fps={FPS}")
         # fades go to the page colour, not black, or the light theme flashes dark
-        fade_col = T.bg.lstrip("#")
+        fade_col = theme.bg.lstrip("#")
         vf = (f"[0:v]{zoom},fade=t=in:st=0:d={FADE}:color=0x{fade_col},"
               f"fade=t=out:st={d - FADE:.3f}:d={FADE}:color=0x{fade_col},"
               f"format=yuv420p[v]")
@@ -653,40 +664,49 @@ def main(theme_name=DEFAULT_THEME):
               f"aresample=48000,apad,atrim=0:{d:.3f},"
               f"afade=t=out:st={d - 0.25:.3f}:d=0.25[a]")
         # fast intermediate encode; the final pass does the real compression
+        tmp = work / "seg_tmp.mp4"
         run(["ffmpeg", "-y", "-loop", "1", "-i", str(img), "-i", str(snd),
              "-filter_complex", f"{vf};{af}",
              "-map", "[v]", "-map", "[a]",
              "-c:v", "libx264", "-preset", "veryfast", "-crf", "16",
              "-r", str(FPS), "-c:a", "pcm_s16le", "-ac", "2",
-             "-t", f"{d:.3f}", str(seg)])
-        segs.append(seg)
-        srt.append((clock + LEAD_SILENCE, clock + LEAD_SILENCE + spoken, beat["say"]))
-        clock += d
-        print(f"  segment {i + 1}/{len(BEATS)}  ({d:.1f}s)")
+             "-t", f"{d:.3f}", str(tmp)])
+        shutil.move(str(tmp), segs[i])
+    report("segments", len(missing), len(missing))
 
-    print("4/4  final encode (logo, music, fades)")
-    lst = WORK / "concat.txt"
+    report("final", 0, 1)
+    clock, srt = 0.0, []
+    outro_start = None
+    for b, snd in zip(beats, paths):
+        spoken = duration(snd)
+        d = LEAD_SILENCE + spoken + BREATH
+        if b["visual"] == "outro":
+            outro_start = clock
+        srt.append((clock + LEAD_SILENCE, clock + LEAD_SILENCE + spoken, b["say"]))
+        clock += d
+
+    lst = work / "concat.txt"
     lst.write_text("".join(f"file '{s.resolve()}'\n" for s in segs))
-    joined = WORK / "joined.mkv"
+    joined = work / "joined.mkv"
     run(["ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", str(lst),
          "-c", "copy", str(joined)])
 
-    final = OUT / "final.mp4"
+    final = out_dir / "final.mp4"
     inputs = ["-i", str(joined)]
     filters = []
     vin = "[0:v]"
     n = 1
 
-    if have_logo:
-        inputs += ["-i", str(WORK / "logo_small.png")]
+    if logo.exists():
+        inputs += ["-i", str(work / "logo_small.png")]
         # corner logo for the whole video except the outro, where the big one is
         show = f":enable='lt(t,{outro_start:.3f})'" if outro_start is not None else ""
         filters.append(f"{vin}[{n}:v]overlay=W-w-{LOGO_MARGIN_PX}:{LOGO_MARGIN_PX}{show}[v]")
         vin = "[v]"
         n += 1
 
-    if Path(MUSIC).exists():
-        bed = build_music_bed(MUSIC, WORK / "bed.wav", clock + 2)
+    if music.exists():
+        bed = build_music_bed(music, work / "bed.wav", clock + 2, work)
         inputs += ["-i", str(bed)]
         # The voice is used twice: once in the mix, once as the control signal
         # that pushes the music down. That is what sidechaincompress does, so
@@ -706,21 +726,17 @@ def main(theme_name=DEFAULT_THEME):
     cmd = ["ffmpeg", "-y", *inputs]
     if filters:
         cmd += ["-filter_complex", ";".join(filters)]
-    cmd += ["-map", vin if filters and have_logo else "0:v", "-map", aout,
+    cmd += ["-map", vin if filters and logo.exists() else "0:v", "-map", aout,
             "-c:v", "libx264", "-preset", "medium", "-crf", "20",
             "-pix_fmt", "yuv420p", "-r", str(FPS),
             "-c:a", "aac", "-b:a", "192k", "-ar", "48000",
             "-movflags", "+faststart", "-shortest", str(final)]
     run(cmd)
 
-    with open(OUT / "final.srt", "w") as f:
+    with open(out_dir / "final.srt", "w") as f:
         for k, (a, bb, txt) in enumerate(srt, 1):
             body = "\n".join(textwrap.wrap(txt, 52))
             f.write(f"{k}\n{srt_time(a)} --> {srt_time(bb)}\n{body}\n\n")
 
-    print(f"\ndone  {final}  ({clock / 60:.1f} min)")
-    print(f"      {OUT / 'final.srt'}")
-
-
-if __name__ == "__main__":
-    main(sys.argv[1] if len(sys.argv) > 1 else DEFAULT_THEME)
+    report("final", 1, 1)
+    return {"video": final, "srt": out_dir / "final.srt", "seconds": clock}
