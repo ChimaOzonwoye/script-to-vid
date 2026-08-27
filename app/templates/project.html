@@ -1,0 +1,300 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ name }} — script to vid</title>
+<link rel="stylesheet" href="/static/style.css">
+<style>
+:root {
+  --bg: {{ theme.bg }}; --panel: {{ theme.panel }}; --ink: {{ theme.ink }};
+  --dim: {{ theme.dim }}; --grid: {{ theme.grid }};
+  --accent: {{ theme.a2 }}; --accent2: {{ theme.a1 }};
+}
+</style>
+</head>
+<body>
+<main>
+  <h1>{{ name }}</h1>
+  <p class="tagline"><a href="/">&larr; all projects</a></p>
+
+  <section class="step">
+    <h2><span class="stepnum">1</span>Project</h2>
+    <p class="hint">You are editing <strong>{{ name }}</strong>. Duplicating
+    starts the next video with this one's look, logo and music.</p>
+    <form class="row" method="post" action="/p/{{ name }}/duplicate">
+      <input type="text" name="new_name" placeholder="Name for the copy" required
+             aria-label="Name for the duplicated project">
+      <button type="submit" class="quiet">Duplicate</button>
+    </form>
+  </section>
+
+  <section class="step">
+    <h2><span class="stepnum">2</span>Script</h2>
+    <p class="hint">Blank lines separate beats. Start a line with # for a new
+    chapter. Start a line with &gt; for a visual direction, like
+    <code>&gt; character: happy, cheer</code> or <code>&gt; prop: piggy</code>.
+    Plain paragraphs become narration.</p>
+    <textarea id="script" spellcheck="false"
+              placeholder="# My first chapter&#10;&#10;&gt; character: happy, cheer&#10;&#10;Write what you want the voice to say here.">{{ script }}</textarea>
+    <p class="hint">
+      <label class="button quiet small" for="scriptfile">Upload a .txt or .md file</label>
+      <input type="file" id="scriptfile" accept=".txt,.md" hidden>
+      <span id="script-info"></span>
+    </p>
+    <div id="reuse" class="notice"></div>
+    <div id="warnings" class="notice warn"></div>
+  </section>
+
+  <section class="step" id="look">
+    <h2><span class="stepnum">3</span>Look</h2>
+    <p class="hint">The page shows the theme you pick. So will the video.</p>
+    <div class="swatches">
+      {% for key, t in themes.items() %}
+      <form method="post" action="/p/{{ name }}/theme">
+        <input type="hidden" name="theme" value="{{ key }}">
+        <button type="submit" class="swatch {{ 'selected' if key == theme.name else '' }}"
+                aria-label="Use the {{ t.label }} theme">
+          <span class="chip" style="background: {{ t.bg }}">
+            <i style="background: {{ t.a1 }}"></i>
+            <i style="background: {{ t.a2 }}"></i>
+            <i style="background: {{ t.ink }}"></i>
+          </span>
+          <span class="label">{{ t.label }}</span>
+        </button>
+      </form>
+      {% endfor %}
+    </div>
+  </section>
+
+  <section class="step">
+    <h2><span class="stepnum">4</span>Logo <small>(optional)</small></h2>
+    <p class="hint">A square .png or .jpg. It is shown as a circle in the top
+    right corner, and large on the end card.</p>
+    <p>
+      <label class="button quiet small" for="logofile">Choose a logo</label>
+      <input type="file" id="logofile" accept=".png,.jpg,.jpeg" hidden>
+      <button type="button" class="quiet small" id="logo-remove"
+              {{ '' if has_logo else 'hidden' }}>Remove</button>
+    </p>
+    <img id="logo-preview" alt="Round logo preview"
+         {% if has_logo %}src="/files/{{ name }}/cache/work/logo_preview.png"
+         style="display:block"{% endif %}>
+    <div id="logo-note" class="notice"></div>
+  </section>
+
+  <section class="step">
+    <h2><span class="stepnum">5</span>Music <small>(optional)</small></h2>
+    <p class="hint">Quiet instrumental under the voice. It ducks down while the
+    voice speaks and loops smoothly if it is shorter than the video.</p>
+    <div id="music-note" class="notice">{% if has_music %}This project has
+      music, {{ music_length }} long.{% endif %}</div>
+
+    {% if tracks %}
+    <p class="hint" style="margin-top:18px"><strong>Pick from the starter
+    library.</strong> These are public domain, safe for monetised videos.</p>
+    <ul class="tracks">
+      {% for t in tracks %}
+      <li>
+        <button type="button" class="small use-track" data-track="{{ t.file }}">Use</button>
+        <span>{{ t.name }}</span>
+        <audio controls preload="none" src="/library/{{ t.file }}" style="height:32px; max-width: 200px"></audio>
+        <span class="len">{{ t.length }}</span>
+      </li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+
+    <hr class="sub">
+    <p class="hint"><strong>Or upload your own.</strong> MP3, WAV or M4A.</p>
+    <p>
+      <label class="button quiet small" for="musicfile">Choose a music file</label>
+      <input type="file" id="musicfile" accept=".mp3,.wav,.m4a" hidden>
+      <button type="button" class="quiet small" id="music-remove"
+              {{ '' if has_music else 'hidden' }}>Remove music</button>
+    </p>
+    <hr class="sub">
+    <p class="hint"><strong>Or paste a direct link</strong> to an audio file
+    (an address ending in .mp3, .wav or .m4a).</p>
+    <form class="row" id="music-url-form">
+      <input type="url" id="music-url" placeholder="https://example.com/track.mp3"
+             aria-label="Direct link to an audio file">
+      <button type="submit" class="quiet">Fetch</button>
+    </form>
+  </section>
+
+  <section class="step">
+    <h2><span class="stepnum">6</span>Generate</h2>
+    <p><button id="generate">Generate the video</button></p>
+    <p class="progress" id="progress"></p>
+    <div id="gen-error" class="notice error"></div>
+    <div id="result" {{ '' if has_video else 'hidden' }}>
+      <video id="player" controls
+             {% if has_video %}src="/files/{{ name }}/out/final.mp4"{% endif %}></video>
+      <div class="downloads">
+        <a class="button" id="dl-video" download="{{ name }}.mp4"
+           href="/files/{{ name }}/out/final.mp4">Download the video</a>
+        <a class="button quiet" id="dl-srt" download="{{ name }}.srt"
+           href="/files/{{ name }}/out/final.srt">Download subtitles</a>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script>
+const NAME = {{ name | tojson }};
+const $ = (id) => document.getElementById(id);
+const script = $("script");
+
+function localCount() {
+  const words = script.value.trim().split(/\s+/).filter(Boolean).length;
+  const sec = Math.round(words / 155 * 60);
+  $("script-info").textContent =
+    words ? `${words} words, about ${Math.floor(sec / 60)} min ${sec % 60} sec` : "";
+}
+
+let saveTimer = null;
+function scheduleSave() {
+  localCount();
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(saveScript, 700);
+}
+
+async function saveScript() {
+  const r = await fetch(`/p/${NAME}/script`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ script: script.value }),
+  });
+  if (!r.ok) return;
+  const a = await r.json();
+  $("script-info").textContent = a.words ? a.estimate : "";
+  const w = $("warnings");
+  w.innerHTML = "";
+  if (a.warnings.length) {
+    w.innerHTML = "<strong>Before you generate:</strong><ul class='warnlist'>" +
+      a.warnings.map((x) => `<li>${x}</li>`).join("") + "</ul>";
+  }
+  const reuse = $("reuse");
+  if (a.beats && (a.voices_cached || a.segments_cached)) {
+    const newLines = a.beats - a.voices_cached;
+    reuse.textContent =
+      (newLines ? `${newLines} of ${a.beats} lines changed, the rest will be reused.`
+                : `All ${a.beats} voice lines will be reused.`) +
+      (a.music_loops ? " The music is shorter than the video and will loop." : "");
+  } else {
+    reuse.textContent = "";
+  }
+}
+
+script.addEventListener("input", scheduleSave);
+localCount();
+saveScript();
+
+$("scriptfile").addEventListener("change", async (e) => {
+  const f = e.target.files[0];
+  if (!f) return;
+  script.value = await f.text();
+  scheduleSave();
+});
+
+async function postFile(url, file) {
+  const fd = new FormData();
+  fd.append("file", file);
+  const r = await fetch(url, { method: "POST", body: fd });
+  return r.json();
+}
+
+$("logofile").addEventListener("change", async (e) => {
+  const f = e.target.files[0];
+  if (!f) return;
+  const a = await postFile(`/p/${NAME}/logo`, f);
+  $("logo-note").textContent = a.error || a.message;
+  if (!a.error) {
+    const img = $("logo-preview");
+    img.src = a.preview + "?t=" + Date.now();
+    img.style.display = "block";
+    $("logo-remove").hidden = false;
+  }
+});
+
+$("logo-remove").addEventListener("click", async () => {
+  const a = await (await fetch(`/p/${NAME}/logo/remove`, { method: "POST" })).json();
+  $("logo-note").textContent = a.message;
+  $("logo-preview").style.display = "none";
+  $("logo-remove").hidden = true;
+});
+
+function musicDone(a) {
+  $("music-note").textContent = a.error || a.message;
+  if (!a.error) $("music-remove").hidden = false;
+}
+
+$("musicfile").addEventListener("change", async (e) => {
+  const f = e.target.files[0];
+  if (f) musicDone(await postFile(`/p/${NAME}/music/upload`, f));
+});
+
+for (const b of document.querySelectorAll(".use-track")) {
+  b.addEventListener("click", async () => {
+    const fd = new FormData();
+    fd.append("track", b.dataset.track);
+    musicDone(await (await fetch(`/p/${NAME}/music/library`, { method: "POST", body: fd })).json());
+  });
+}
+
+$("music-url-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const fd = new FormData();
+  fd.append("url", $("music-url").value);
+  $("music-note").textContent = "Fetching…";
+  musicDone(await (await fetch(`/p/${NAME}/music/url`, { method: "POST", body: fd })).json());
+});
+
+$("music-remove").addEventListener("click", async () => {
+  const a = await (await fetch(`/p/${NAME}/music/remove`, { method: "POST" })).json();
+  $("music-note").textContent = a.message;
+  $("music-remove").hidden = true;
+});
+
+let polling = null;
+$("generate").addEventListener("click", async () => {
+  $("gen-error").textContent = "";
+  $("generate").disabled = true;
+  $("progress").textContent = "Starting…";
+  const r = await fetch(`/p/${NAME}/generate`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ script: script.value }),
+  });
+  const a = await r.json();
+  if (a.error) {
+    $("gen-error").textContent = a.error;
+    $("generate").disabled = false;
+    $("progress").textContent = "";
+    return;
+  }
+  polling = setInterval(poll, 800);
+});
+
+async function poll() {
+  const s = await (await fetch(`/p/${NAME}/status`)).json();
+  $("progress").textContent = s.message || "";
+  if (s.state === "done" || s.state === "error") {
+    clearInterval(polling);
+    $("generate").disabled = false;
+    if (s.state === "done") {
+      $("result").hidden = false;
+      $("player").src = `/files/${NAME}/out/final.mp4?t=` + Date.now();
+      $("dl-video").href = `/files/${NAME}/out/final.mp4`;
+      $("dl-srt").href = `/files/${NAME}/out/final.srt`;
+      $("progress").textContent = "Done. Your video is ready below.";
+    } else {
+      $("gen-error").textContent = s.message;
+      $("progress").textContent = "";
+    }
+  }
+}
+</script>
+</body>
+</html>

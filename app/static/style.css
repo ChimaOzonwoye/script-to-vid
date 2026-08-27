@@ -1,0 +1,161 @@
+:root {
+  --bg: #faf6ec;
+  --panel: #f3ecdc;
+  --ink: #1d1b16;
+  --dim: #7a7266;
+  --grid: #e0d8c6;
+  --accent: #0f766e;
+  --accent2: #c8912c;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    Helvetica, Arial, sans-serif;
+  font-size: 17px;
+  line-height: 1.55;
+}
+
+main {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 48px 24px 120px;
+}
+
+h1 { font-size: 28px; margin: 0 0 8px; }
+h2 { font-size: 28px; margin: 0; }
+
+.tagline, .hint, small { color: var(--dim); font-size: 14.5px; }
+.hint { display: block; margin-top: 8px; }
+
+section.step {
+  margin-top: 56px;
+  padding-top: 24px;
+  border-top: 2px solid var(--grid);
+}
+
+.stepnum {
+  display: inline-block;
+  color: var(--accent);
+  font-weight: 700;
+  margin-right: 10px;
+}
+
+textarea {
+  width: 100%;
+  min-height: 320px;
+  margin-top: 16px;
+  padding: 14px;
+  border: 2px solid var(--grid);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--ink);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 14.5px;
+  line-height: 1.5;
+}
+
+input[type="text"], input[type="url"] {
+  padding: 10px 12px;
+  border: 2px solid var(--grid);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--ink);
+  font-size: 17px;
+  min-width: 0;
+}
+
+button, .button {
+  display: inline-block;
+  background: var(--accent);
+  color: var(--bg);
+  border: none;
+  border-radius: 8px;
+  padding: 12px 22px;
+  font-size: 17px;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+}
+button.small, .button.small { padding: 8px 14px; font-size: 14.5px; }
+button.quiet, .button.quiet {
+  background: transparent;
+  color: var(--accent);
+  border: 2px solid var(--grid);
+}
+
+button:focus-visible, .button:focus-visible, a:focus-visible,
+input:focus-visible, textarea:focus-visible, label:focus-within {
+  outline: 3px solid var(--accent2);
+  outline-offset: 2px;
+}
+
+button:disabled { opacity: 0.5; cursor: default; }
+
+form.row { display: flex; gap: 10px; margin-top: 16px; }
+form.row input { flex: 1; }
+
+ul.projects { list-style: none; padding: 0; margin: 24px 0 0; }
+ul.projects li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--grid);
+}
+ul.projects a { color: var(--accent); font-weight: 600; text-decoration: none; }
+
+.swatches { display: flex; gap: 14px; margin-top: 18px; flex-wrap: wrap; }
+.swatch {
+  width: 132px;
+  border: 3px solid var(--grid);
+  border-radius: 10px;
+  padding: 0;
+  overflow: hidden;
+  background: none;
+  cursor: pointer;
+}
+.swatch.selected { border-color: var(--accent); }
+.swatch .chip { height: 56px; display: flex; align-items: center;
+  justify-content: center; gap: 8px; }
+.swatch .chip i { width: 18px; height: 18px; border-radius: 50%;
+  display: inline-block; }
+.swatch .label { display: block; padding: 8px 0; font-size: 14.5px;
+  color: var(--ink); background: #fff; font-weight: 600; }
+
+.notice {
+  margin-top: 14px;
+  padding: 12px 14px;
+  border-radius: 8px;
+  background: var(--panel);
+  border: 1px solid var(--grid);
+  font-size: 14.5px;
+}
+.notice.warn { border-color: var(--accent2); }
+.notice.error { border-color: #b3261e; color: #b3261e; }
+.notice:empty { display: none; }
+
+.warnlist { margin: 8px 0 0; padding-left: 20px; }
+
+#logo-preview {
+  width: 120px; height: 120px; border-radius: 50%;
+  margin-top: 14px; display: none;
+}
+
+.tracks { list-style: none; padding: 0; margin: 14px 0 0; }
+.tracks li { padding: 8px 0; border-bottom: 1px solid var(--grid);
+  display: flex; align-items: center; gap: 12px; }
+.tracks .len { color: var(--dim); font-size: 14.5px; margin-left: auto; }
+
+.progress { font-weight: 600; margin-top: 16px; }
+
+video { width: 100%; margin-top: 18px; border-radius: 10px;
+  border: 2px solid var(--grid); background: #000; }
+
+.downloads { display: flex; gap: 12px; margin-top: 14px; }
+
+hr.sub { border: 0; border-top: 1px solid var(--grid); margin: 22px 0; }
