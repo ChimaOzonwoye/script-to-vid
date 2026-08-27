@@ -255,14 +255,14 @@ def v_jars(fig, b, T):
     ax.set_xlim(0, 10); ax.set_ylim(0, 6)
     rng = np.random.default_rng(7)
 
-    ax.text(2.5, 5.4, b.get("left", "Save what's left"), ha="center",
+    ax.text(2.5, 5.4, b.get("left", "Before"), ha="center",
             fontsize=30, color=T.dim, fontweight="bold")
     xs = rng.uniform(0.6, 4.4, 26); ys = rng.uniform(0.4, 4.2, 26)
     ax.scatter(xs, ys, s=340, color=T.a1_pale, alpha=0.9, edgecolors=T.dim, lw=1.5)
 
     ax.plot([5, 5], [0.2, 5.0], color=T.grid, lw=2.5)
 
-    ax.text(7.5, 5.4, b.get("right", "Pay yourself first"), ha="center",
+    ax.text(7.5, 5.4, b.get("right", "After"), ha="center",
             fontsize=30, color=T.a2, fontweight="bold")
     ax.plot([6.3, 6.3, 8.7, 8.7], [4.4, 0.5, 0.5, 4.4], color=T.a2, lw=4, alpha=0.85)
     for row in range(7):

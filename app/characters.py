@@ -1,4 +1,4 @@
-"""Parametric line-art characters for the Next Door Neighbor videos.
+"""Parametric line-art characters for the videos this tool builds.
 
 Every figure is drawn from code, so the same character comes out identical in
 every scene. There is no image model and no drawing to source.
