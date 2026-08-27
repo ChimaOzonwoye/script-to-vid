@@ -7,3 +7,5 @@ work/
 out/
 logo.png
 music.mp3
+# voice previews are made during install, one set per computer
+assets/voices/
