@@ -25,9 +25,9 @@ app in your browser when it is finished. The first run takes a few minutes.
 After that there is a **script to vid** shortcut on your Desktop.
 
 If you would rather not paste something you have not read, open the link in
-your browser first and read it. Or paste it into ChatGPT or Claude and ask
-what it does before you run it. Piping a script from the internet into your
-shell is a fair thing to be careful about.
+your browser first and read it. Or paste it into an AI chatbot and ask what it
+does before you run it. Piping a script from the internet into your shell is a
+fair thing to be careful about.
 
 <details>
 <summary>Prefer to download it yourself?</summary>
