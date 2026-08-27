@@ -106,14 +106,26 @@ $env:PATH = "$Dest\ffmpeg\bin;$env:PATH"
 if ($LASTEXITCODE -ne 0) { Write-Host "  (samples skipped, the voices still work)" }
 
 # ---- shortcut and launch ---------------------------------------------
-$shell = New-Object -ComObject WScript.Shell
-$lnk = $shell.CreateShortcut((Join-Path ([Environment]::GetFolderPath('Desktop')) "script to vid.lnk"))
-$lnk.TargetPath = Join-Path $Dest "run.bat"
-$lnk.WorkingDirectory = $Dest
-$lnk.Save()
+# a redirected or missing Desktop folder should not fail the whole install
+$shortcut = $false
+$desktop = [Environment]::GetFolderPath('Desktop')
+if ($desktop -and (Test-Path $desktop)) {
+    try {
+        $shell = New-Object -ComObject WScript.Shell
+        $lnk = $shell.CreateShortcut((Join-Path $desktop "script to vid.lnk"))
+        $lnk.TargetPath = Join-Path $Dest "run.bat"
+        $lnk.WorkingDirectory = $Dest
+        $lnk.Save()
+        $shortcut = $true
+    } catch { }
+}
 
 Write-Host ""
 Write-Host "Done. Opening it now."
-Write-Host "Next time, use the 'script to vid' shortcut on your Desktop."
+if ($shortcut) {
+    Write-Host "Next time, use the 'script to vid' shortcut on your Desktop."
+} else {
+    Write-Host "Next time, open $Dest and double-click run.bat"
+}
 Write-Host ""
 & (Join-Path $Dest "run.bat")

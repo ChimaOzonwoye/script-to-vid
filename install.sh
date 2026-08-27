@@ -88,15 +88,24 @@ say "Preparing voice samples."
 
 # ---- shortcut and launch ---------------------------------------------
 chmod +x run.sh 2>/dev/null
-cat > "$HOME/Desktop/script to vid.command" <<EOF 2>/dev/null
-#!/bin/bash
-cd "$DEST"
-./run.sh
-EOF
-chmod +x "$HOME/Desktop/script to vid.command" 2>/dev/null
+# not every account has a Desktop folder, and the shell prints its own error
+# if the redirect target is missing, so this is checked rather than silenced
+SHORTCUT=""
+if [ -d "$HOME/Desktop" ]; then
+  LAUNCHER="$HOME/Desktop/script to vid.command"
+  {
+    printf '#!/bin/bash\n'
+    printf 'cd "%s"\n' "$DEST"
+    printf './run.sh\n'
+  } > "$LAUNCHER" && chmod +x "$LAUNCHER" && SHORTCUT="yes"
+fi
 
 say ""
 say "Done. Opening it now."
-say "Next time, double-click 'script to vid' on your Desktop."
+if [ -n "$SHORTCUT" ]; then
+  say "Next time, double-click 'script to vid' on your Desktop."
+else
+  say "Next time, open $DEST and run ./run.sh"
+fi
 say ""
 exec ./run.sh
