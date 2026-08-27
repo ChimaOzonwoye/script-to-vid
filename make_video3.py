@@ -15,7 +15,7 @@ Pipeline:
      optional music, and a subscribe end card
   6. An .srt subtitle file is written alongside it
 
-Run:  python make_video3.py
+Run:  python make_video3.py [cream|paper|sky|mint]
 Out:  out/final.mp4  and  out/final.srt
 
 Optional files, dropped in the same folder:
@@ -39,7 +39,10 @@ import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 import matplotlib.patheffects as pe
 import numpy as np
+from matplotlib.colors import to_rgb
 from PIL import Image
+
+from themes import THEMES, DEFAULT_THEME, mix
 
 # ----------------------------------------------------------------------
 # CONFIG
@@ -51,19 +54,6 @@ W, H = 1920, 1080
 FPS = 30
 OUT = Path("out")
 WORK = Path("work")
-
-# Warm cream + gold and teal
-BG      = "#faf6ec"   # page cream
-PANEL   = "#f3ecdc"   # callout panel, slightly deeper than the page
-FG      = "#1d1b16"   # near black body text
-DIM     = "#7a7266"   # captions and axis labels
-GOLD    = "#c8912c"   # primary accent
-GOLD_HI = "#9c6d16"   # darker gold, for text that must stay readable
-GOLD_PALE = "#f0dfae"  # fills and halos
-TEAL    = "#0f766e"   # secondary accent
-TEAL_HI = "#0b524c"
-TEAL_PALE = "#cfe7e3"
-GRID    = "#e0d8c6"
 
 LOGO = "logo.png"
 LOGO_CORNER_PX = 150        # height of the small corner logo
@@ -108,7 +98,7 @@ BEATS = [
          say="I used to think that avoiding debt meant I had good credit. But no debt "
              "isn't the same as good credit."),
 
-    dict(visual="callout", headline="NO CREDIT  \u2260  GOOD CREDIT",
+    dict(visual="callout", headline="NO CREDIT  ≠  GOOD CREDIT",
          say="You actually need a track record of using credit responsibly and paying "
              "it back on time."),
 
@@ -186,17 +176,17 @@ BEATS = [
 # DRAWING HELPERS
 # ----------------------------------------------------------------------
 
-def _fig():
-    return plt.figure(figsize=(W / 100, H / 100), dpi=100, facecolor=BG)
+def _fig(T):
+    return plt.figure(figsize=(W / 100, H / 100), dpi=100, facecolor=T.bg)
 
 
 HEAD_MAX_W = 1480   # px; leaves the top right corner clear for the logo
 
 
-def _headline(fig, text, y=0.87, size=58, color=FG):
+def _headline(fig, T, text, y=0.87, size=58, color=None):
     """Draw a centred headline, shrinking it if it would reach the logo."""
     t = fig.text(0.5, y, text, ha="center", va="top", fontsize=size,
-                 color=color, fontweight="bold", linespacing=1.18)
+                 color=color or T.ink, fontweight="bold", linespacing=1.18)
     fig.canvas.draw()
     w = t.get_window_extent(fig.canvas.get_renderer()).width
     if w > HEAD_MAX_W:
@@ -204,30 +194,31 @@ def _headline(fig, text, y=0.87, size=58, color=FG):
     return t
 
 
-def _sub(fig, text, y=0.17, size=30, color=DIM):
+def _sub(fig, T, text, y=0.17, size=30, color=None):
     if text:
-        fig.text(0.5, y, text, ha="center", va="center", fontsize=size, color=color)
+        fig.text(0.5, y, text, ha="center", va="center", fontsize=size,
+                 color=color or T.dim)
 
 
-def _rule(fig, y=0.79, w=0.10, color=GOLD, lw=4):
+def _rule(fig, T, y=0.79, w=0.10, color=None, lw=4):
     ax = fig.add_axes([0.5 - w / 2, y, w, 0.002])
-    ax.plot([0, 1], [0, 0], color=color, lw=lw, solid_capstyle="round")
+    ax.plot([0, 1], [0, 0], color=color or T.a1, lw=lw, solid_capstyle="round")
     ax.axis("off")
 
 
-def _axes(fig, rect=(0.13, 0.22, 0.74, 0.48)):
+def _axes(fig, T, rect=(0.13, 0.22, 0.74, 0.48)):
     ax = fig.add_axes(rect)
-    ax.set_facecolor(BG)
+    ax.set_facecolor(T.bg)
     for s in ax.spines.values():
-        s.set_color(GRID)
-    ax.tick_params(colors=DIM, labelsize=18)
-    ax.grid(True, color=GRID, linewidth=1)
+        s.set_color(T.grid)
+    ax.tick_params(colors=T.dim, labelsize=18)
+    ax.grid(True, color=T.grid, linewidth=1)
     ax.set_axisbelow(True)
     return ax
 
 
-def _glow(txt, color=GOLD_PALE, n=6):
-    """A pale halo so large type separates from the cream page."""
+def _glow(txt, color, n=6):
+    """A pale halo so large type separates from the page colour."""
     txt.set_path_effects([pe.withStroke(linewidth=n, foreground=color, alpha=0.85)])
 
 
@@ -253,41 +244,41 @@ def make_round_logo(src, dst, size):
 # SLIDES
 # ----------------------------------------------------------------------
 
-def v_sweep(fig, b):
-    """Gold light sweeping across a dark surface. Soft falloff on both axes."""
+def v_sweep(fig, b, T):
+    """Accent light sweeping across the page. Soft falloff on both axes."""
     from matplotlib.colors import LinearSegmentedColormap
     ax = fig.add_axes([0, 0, 1, 1]); ax.axis("off")
     xn = np.linspace(0, 1, 480)[None, :]
     yn = np.linspace(0, 1, 270)[:, None]
     field = (np.exp(-((xn - 0.50) ** 2) / 0.22)
              * np.exp(-((yn - 0.46) ** 2) / 0.045))
-    cmap = LinearSegmentedColormap.from_list("g", [BG, GOLD_PALE, GOLD])
+    cmap = LinearSegmentedColormap.from_list("g", [T.bg, T.a1_pale, T.a1])
     ax.imshow(field, aspect="auto", cmap=cmap, extent=[0, 1, 0, 1],
               vmin=0, vmax=1.35, interpolation="bilinear")
     ax.set_xlim(0, 1); ax.set_ylim(0, 1)
     fig.text(0.5, 0.53, "Nobody sat me down", ha="center", va="center",
-             fontsize=64, color=FG, fontweight="bold")
+             fontsize=64, color=T.ink, fontweight="bold")
     fig.text(0.5, 0.40, "and explained money.", ha="center", va="center",
-             fontsize=64, color=FG, fontweight="bold")
+             fontsize=64, color=T.ink, fontweight="bold")
 
 
-def v_title(fig, b):
+def v_title(fig, b, T):
     ax = fig.add_axes([0, 0.44, 1, 0.02]); ax.axis("off")
-    _headline(fig, b["headline"], y=0.70, size=96, color=FG)
-    _rule(fig, y=0.40, w=0.16)
-    _sub(fig, b.get("sub"), y=0.31, size=32)
+    _headline(fig, T, b["headline"], y=0.70, size=96)
+    _rule(fig, T, y=0.40, w=0.16)
+    _sub(fig, T, b.get("sub"), y=0.31, size=32)
 
 
-def v_chapter(fig, b):
+def v_chapter(fig, b, T):
     t = fig.text(0.5, 0.72, b["num"], ha="center", va="center",
-                 fontsize=150, color=GOLD, fontweight="bold")
-    _glow(t, n=10)
-    _rule(fig, y=0.55, w=0.08)
-    _headline(fig, b["headline"], y=0.47, size=68)
+                 fontsize=150, color=T.a1, fontweight="bold")
+    _glow(t, T.a1_pale, n=10)
+    _rule(fig, T, y=0.55, w=0.08)
+    _headline(fig, T, b["headline"], y=0.47, size=68)
 
 
-def v_gauge(fig, b):
-    _headline(fig, b["headline"])
+def v_gauge(fig, b, T):
+    _headline(fig, T, b["headline"])
     ax = fig.add_axes([0.26, 0.30, 0.48, 0.48], projection="polar")
     ax.set_facecolor("none")
     ax.set_theta_offset(np.pi)
@@ -297,99 +288,98 @@ def v_gauge(fig, b):
     ax.spines["polar"].set_visible(False)
     ax.grid(False)
     th = np.linspace(0, np.pi, 400)
-    ax.plot(th, np.ones_like(th), color=GRID, lw=40, solid_capstyle="round")
+    ax.plot(th, np.ones_like(th), color=T.grid, lw=40, solid_capstyle="round")
     # colour ramps along the arc so the gauge reads as a scale, not one block
+    c1, c2 = to_rgb(T.a1), to_rgb(T.a2)
     fill = th[th <= np.pi * 0.78]
     for i in range(len(fill) - 1):
         f = i / max(len(fill) - 1, 1)
-        col = (0.78 * (1 - f) + 0.06 * f,     # gold -> teal
-               0.57 * (1 - f) + 0.46 * f,
-               0.17 * (1 - f) + 0.43 * f)
+        col = tuple(c1[k] * (1 - f) + c2[k] * f for k in range(3))
         ax.plot(fill[i:i + 2], [1, 1], color=col, lw=40, solid_capstyle="butt")
     ax.set_ylim(0, 1.22)
     t = fig.text(0.5, 0.30, "742", ha="center", va="center",
-                 fontsize=104, color=TEAL, fontweight="bold")
-    _glow(t, n=9)
-    fig.text(0.26, 0.31, "300", ha="center", fontsize=24, color=DIM)
-    fig.text(0.74, 0.31, "850", ha="center", fontsize=24, color=DIM)
+                 fontsize=104, color=T.a2, fontweight="bold")
+    _glow(t, T.a1_pale, n=9)
+    fig.text(0.26, 0.31, "300", ha="center", fontsize=24, color=T.dim)
+    fig.text(0.74, 0.31, "850", ha="center", fontsize=24, color=T.dim)
     fig.text(0.5, 0.17, "Building from the day you start, not the day you need it",
-             ha="center", fontsize=24, color=DIM)
+             ha="center", fontsize=24, color=T.dim)
 
 
-def v_callout(fig, b):
+def v_callout(fig, b, T):
     ax = fig.add_axes([0.08, 0.40, 0.84, 0.20])
-    ax.set_facecolor(TEAL_PALE)
+    ax.set_facecolor(T.a2_pale)
     for s in ax.spines.values():
-        s.set_color(TEAL)
+        s.set_color(T.a2)
         s.set_linewidth(2.5)
     ax.set_xticks([]); ax.set_yticks([])
     txt = b["headline"]
     # bold caps run about 0.97 px per point per character at this dpi;
     # keep the line inside 1440 px of the 1613 px panel
     size = min(72, int(1440 / (max(len(txt), 1) * 0.97)))
-    t = fig.text(0.5, 0.50, txt, ha="center", va="center",
-                 fontsize=size, color=TEAL_HI, fontweight="bold")
+    fig.text(0.5, 0.50, txt, ha="center", va="center",
+             fontsize=size, color=T.a2_hi, fontweight="bold")
 
 
-def v_timeline(fig, b):
-    _headline(fig, b["headline"])
-    ax = _axes(fig)
+def v_timeline(fig, b, T):
+    _headline(fig, T, b["headline"])
+    ax = _axes(fig, T)
     x = np.arange(0, 121)
     y = 300 + 550 * (1 - np.exp(-x / 34))
-    ax.plot(x, y, color=TEAL, lw=6)
-    ax.fill_between(x, 300, y, color=TEAL, alpha=0.13)
-    ax.axvline(0, color=GOLD, lw=2.5, ls=":")
+    ax.plot(x, y, color=T.a2, lw=6)
+    ax.fill_between(x, 300, y, color=T.a2, alpha=0.13)
+    ax.axvline(0, color=T.a1, lw=2.5, ls=":")
     ax.annotate("Day 1", xy=(0, 300), xytext=(9, 380),
-                color=FG, fontsize=24, fontweight="bold")
-    ax.set_xlabel("Months of credit history", color=DIM, fontsize=22, labelpad=12)
-    ax.set_ylabel("Score", color=DIM, fontsize=22, labelpad=12)
+                color=T.ink, fontsize=24, fontweight="bold")
+    ax.set_xlabel("Months of credit history", color=T.dim, fontsize=22, labelpad=12)
+    ax.set_ylabel("Score", color=T.dim, fontsize=22, labelpad=12)
     ax.set_ylim(250, 900)
     ax.set_xticks([0, 24, 48, 72, 96, 120])
     fig.text(0.5, 0.09, "Illustrative shape, not a prediction of your score",
-             ha="center", fontsize=19, color=DIM)
+             ha="center", fontsize=19, color=T.dim)
 
 
-def v_jars(fig, b):
-    _headline(fig, b["headline"])
+def v_jars(fig, b, T):
+    _headline(fig, T, b["headline"])
     ax = fig.add_axes([0.08, 0.16, 0.84, 0.56]); ax.axis("off")
     ax.set_xlim(0, 10); ax.set_ylim(0, 6)
     rng = np.random.default_rng(7)
 
     # left: scattered
-    ax.text(2.5, 5.4, "Save what's left", ha="center", fontsize=30, color=DIM,
+    ax.text(2.5, 5.4, "Save what's left", ha="center", fontsize=30, color=T.dim,
             fontweight="bold")
     xs = rng.uniform(0.6, 4.4, 26); ys = rng.uniform(0.4, 4.2, 26)
-    ax.scatter(xs, ys, s=340, color=GOLD_PALE, alpha=0.9, edgecolors=DIM, lw=1.5)
+    ax.scatter(xs, ys, s=340, color=T.a1_pale, alpha=0.9, edgecolors=T.dim, lw=1.5)
 
-    ax.plot([5, 5], [0.2, 5.0], color=GRID, lw=2.5)
+    ax.plot([5, 5], [0.2, 5.0], color=T.grid, lw=2.5)
 
     # right: stacked in a jar
     ax.text(7.5, 5.4, "Pay yourself first", ha="center", fontsize=30,
-            color=TEAL, fontweight="bold")
-    ax.plot([6.3, 6.3, 8.7, 8.7], [4.4, 0.5, 0.5, 4.4], color=TEAL, lw=4, alpha=0.85)
+            color=T.a2, fontweight="bold")
+    ax.plot([6.3, 6.3, 8.7, 8.7], [4.4, 0.5, 0.5, 4.4], color=T.a2, lw=4, alpha=0.85)
     for row in range(7):
         for col in range(3):
             ax.scatter(6.85 + col * 0.6, 0.85 + row * 0.5, s=340,
-                       color=GOLD, edgecolors=GOLD_HI, lw=1.5, zorder=3)
+                       color=T.a1, edgecolors=T.a1_hi, lw=1.5, zorder=3)
 
 
-def v_terms(fig, b):
-    _headline(fig, b["headline"])
+def v_terms(fig, b, T):
+    _headline(fig, T, b["headline"])
     spots = [(0.22, 0.56, "APR?"), (0.50, 0.62, "FICO?"), (0.78, 0.55, "ESCROW?"),
              (0.34, 0.36, "UTILIZATION?"), (0.68, 0.34, "APY?")]
     for i, (x, y, word) in enumerate(spots):
-        col = TEAL if i % 2 else GOLD_HI
+        col = T.a2 if i % 2 else T.a1_hi
         t = fig.text(x, y, word, ha="center", va="center", fontsize=44,
                      color=col, fontweight="bold")
         t.set_bbox(dict(boxstyle="round,pad=0.45",
-                        facecolor=TEAL_PALE if i % 2 else GOLD_PALE,
+                        facecolor=T.a2_pale if i % 2 else T.a1_pale,
                         edgecolor="none"))
     fig.text(0.5, 0.17, "None of this was ever explained",
-             ha="center", fontsize=28, color=DIM)
+             ha="center", fontsize=28, color=T.dim)
 
 
-def v_path(fig, b):
-    _headline(fig, b["headline"])
+def v_path(fig, b, T):
+    _headline(fig, T, b["headline"])
     ax = fig.add_axes([0.10, 0.20, 0.80, 0.50]); ax.axis("off")
     ax.set_xlim(-5, 5); ax.set_ylim(0, 5)
     VY = 4.05                       # vanishing point height
@@ -398,29 +388,29 @@ def v_path(fig, b):
         return 4.3 * (1 - t) ** 1.6 + 0.02
 
     # horizon band, so the road sits on ground instead of floating as a shape
-    ax.fill_between([-5, 5], VY, 5, color=TEAL_PALE, alpha=0.55, zorder=0)
-    ax.plot([-5, 5], [VY, VY], color=TEAL, lw=1.6, alpha=0.55, zorder=1)
+    ax.fill_between([-5, 5], VY, 5, color=T.a2_pale, alpha=0.55, zorder=0)
+    ax.plot([-5, 5], [VY, VY], color=T.a2, lw=1.6, alpha=0.55, zorder=1)
 
     # soft glow at the vanishing point, drawn as a gradient so it has no hard rim
     from matplotlib.colors import LinearSegmentedColormap
     gx = np.linspace(-2.2, 2.2, 300)[None, :]
     gy = np.linspace(-1.4, 1.4, 200)[:, None]
     glow = np.exp(-(gx ** 2) / 0.65) * np.exp(-(gy ** 2) / 0.28)
+    g1, g2 = to_rgb(T.a1), to_rgb(T.a1_pale)
     ax.imshow(glow, extent=[-2.2, 2.2, VY - 1.4, VY + 1.4], origin="lower",
               aspect="auto", zorder=0, interpolation="bilinear", vmin=0, vmax=2.2,
               cmap=LinearSegmentedColormap.from_list(
-                  "gl", [(0.784, 0.569, 0.173, 0.0),
-                         (0.941, 0.875, 0.682, 0.75),
-                         (0.784, 0.569, 0.173, 0.95)]))
+                  "gl", [(*g1, 0.0), (*g2, 0.75), (*g1, 0.95)]))
 
     # road surface: faint, fading out before the horizon
+    road = mix(T.a1_pale, T.ink, 0.12)
     n = 60
     for i in range(n):
         t0, t1 = i / n, (i + 1) / n
         y0, y1 = t0 * VY, t1 * VY
         w0, w1 = half_width(t0), half_width(t1)
         ax.fill([-w0, w0, w1, -w1], [y0, y0, y1, y1],
-                color="#d8cdb4", alpha=0.30 + 0.45 * (1 - t0), lw=0, zorder=1)
+                color=road, alpha=0.30 + 0.45 * (1 - t0), lw=0, zorder=1)
 
     # the two edges, brightening toward the viewer
     for i in range(n):
@@ -428,13 +418,13 @@ def v_path(fig, b):
         a = 0.20 + 0.75 * (1 - t0) ** 0.9
         for s in (-1, 1):
             ax.plot([s * half_width(t0), s * half_width(t1)], [t0 * VY, t1 * VY],
-                    color=TEAL, lw=1.0 + 3.4 * (1 - t0), alpha=a,
+                    color=T.a2, lw=1.0 + 3.4 * (1 - t0), alpha=a,
                     solid_capstyle="round", zorder=3)
 
     # centre dashes
     for t in np.arange(0.03, 0.92, 0.105):
         seg = 0.055 * (1 - t) + 0.004
-        ax.plot([0, 0], [t * VY, (t + seg) * VY], color=GOLD,
+        ax.plot([0, 0], [t * VY, (t + seg) * VY], color=T.a1,
                 lw=1.0 + 3.0 * (1 - t), alpha=0.30 + 0.55 * (1 - t),
                 solid_capstyle="round", zorder=3)
 
@@ -443,16 +433,16 @@ def v_path(fig, b):
         y, w = t * VY, half_width(t)
         x = side * (w + 0.40)
         h = 1.15 * (1 - t) ** 1.3 + 0.06
-        ax.plot([x, x], [y, y + h], color=DIM, lw=1.0 + 2.2 * (1 - t), zorder=4)
-        ax.scatter([x], [y + h], s=420 * (1 - t) ** 1.6 + 25, color=GOLD_PALE,
-                   marker="s", edgecolors=GOLD_HI, lw=1.0 + 1.4 * (1 - t), zorder=4)
+        ax.plot([x, x], [y, y + h], color=T.dim, lw=1.0 + 2.2 * (1 - t), zorder=4)
+        ax.scatter([x], [y + h], s=420 * (1 - t) ** 1.6 + 25, color=T.a1_pale,
+                   marker="s", edgecolors=T.a1_hi, lw=1.0 + 1.4 * (1 - t), zorder=4)
 
-    _sub(fig, b.get("sub"), y=0.14, size=32, color=TEAL)
+    _sub(fig, T, b.get("sub"), y=0.14, size=32, color=T.a2)
 
 
-def v_growth(fig, b):
-    _headline(fig, b["headline"])
-    ax = _axes(fig, rect=(0.13, 0.24, 0.74, 0.44))
+def v_growth(fig, b, T):
+    _headline(fig, T, b["headline"])
+    ax = _axes(fig, T, rect=(0.13, 0.24, 0.74, 0.44))
     yrs = np.arange(1, 21)
     r, monthly = 0.07, 250.0
     bal, vals = 0.0, []
@@ -461,32 +451,31 @@ def v_growth(fig, b):
             bal = bal * (1 + r / 12) + monthly
         vals.append(bal)
     vals = np.array(vals)
-    # bars ramp teal -> gold left to right so the growth reads at a glance
+    # bars ramp accent2 -> accent1 left to right so the growth reads at a glance
+    c1, c2 = to_rgb(T.a2), to_rgb(T.a1)
     cols = []
     for i in range(len(yrs)):
         f = i / (len(yrs) - 1)
-        cols.append((0.06 * (1 - f) + 0.78 * f,
-                     0.46 * (1 - f) + 0.57 * f,
-                     0.43 * (1 - f) + 0.17 * f))
+        cols.append(tuple(c1[k] * (1 - f) + c2[k] * f for k in range(3)))
     ax.bar(yrs, vals / 1000, color=cols, width=0.68, edgecolor="none")
-    ax.set_xlabel("Years", color=DIM, fontsize=22, labelpad=12)
-    ax.set_ylabel("Balance ($ thousands)", color=DIM, fontsize=22, labelpad=12)
+    ax.set_xlabel("Years", color=T.dim, fontsize=22, labelpad=12)
+    ax.set_ylabel("Balance ($ thousands)", color=T.dim, fontsize=22, labelpad=12)
     ax.set_xticks([1, 5, 10, 15, 20])
     ax.text(1.2, vals[-1] / 1000 * 0.86, f"${vals[-1]:,.0f}\nafter 20 years",
-            fontsize=28, color=TEAL_HI, fontweight="bold", va="top")
+            fontsize=28, color=T.a2_hi, fontweight="bold", va="top")
     fig.text(0.5, 0.11, "$250/month at a 7% average annual return, illustrative only",
-             ha="center", fontsize=19, color=DIM)
+             ha="center", fontsize=19, color=T.dim)
 
 
-def v_quiet(fig, b):
-    _headline(fig, b["headline"], y=0.62, size=76, color=FG)
-    _rule(fig, y=0.44, w=0.12)
+def v_quiet(fig, b, T):
+    _headline(fig, T, b["headline"], y=0.62, size=76)
+    _rule(fig, T, y=0.44, w=0.12)
     fig.text(0.5, 0.34, "Nodding along is not understanding.",
-             ha="center", fontsize=32, color=TEAL)
+             ha="center", fontsize=32, color=T.a2)
 
 
-def v_recap(fig, b):
-    _headline(fig, b["headline"], y=0.88, size=56, color=GOLD_HI)
+def v_recap(fig, b, T):
+    _headline(fig, T, b["headline"], y=0.88, size=56, color=T.a1_hi)
     items = [
         "Build your credit early",
         "Save first, not last",
@@ -497,11 +486,11 @@ def v_recap(fig, b):
     for i, it in enumerate(items):
         y = 0.66 - i * 0.115
         fig.text(0.30, y, f"0{i + 1}", ha="right", va="center",
-                 fontsize=38, color=TEAL if i % 2 else GOLD_HI, fontweight="bold")
-        fig.text(0.35, y, it, ha="left", va="center", fontsize=42, color=FG)
+                 fontsize=38, color=T.a2 if i % 2 else T.a1_hi, fontweight="bold")
+        fig.text(0.35, y, it, ha="left", va="center", fontsize=42, color=T.ink)
 
 
-def v_outro(fig, b):
+def v_outro(fig, b, T):
     big = WORK / "logo_big.png"
     if big.exists():
         img = mpimg.imread(big)
@@ -512,16 +501,16 @@ def v_outro(fig, b):
         ax.imshow(img)
     else:
         t = fig.text(0.5, 0.68, "NDN", ha="center", va="center",
-                     fontsize=110, color=GOLD_HI, fontweight="bold")
-        _glow(t, n=10)
+                     fontsize=110, color=T.a1_hi, fontweight="bold")
+        _glow(t, T.a1_pale, n=10)
         fig.text(0.5, 0.575, "NEXT DOOR NEIGHBOR", ha="center",
-                 fontsize=24, color=DIM)
-    _rule(fig, y=0.30, w=0.10)
-    _headline(fig, b["headline"], y=0.265, size=36, color=DIM)
-    _sub(fig, b.get("sub"), y=0.175, size=40, color=FG)
-    t = fig.text(0.5, 0.08, "SUBSCRIBE", ha="center", fontsize=28, color="#ffffff",
+                 fontsize=24, color=T.dim)
+    _rule(fig, T, y=0.30, w=0.10)
+    _headline(fig, T, b["headline"], y=0.265, size=36, color=T.dim)
+    _sub(fig, T, b.get("sub"), y=0.175, size=40, color=T.ink)
+    t = fig.text(0.5, 0.08, "SUBSCRIBE", ha="center", fontsize=28, color=T.bg,
                  fontweight="bold")
-    t.set_bbox(dict(boxstyle="round,pad=0.6", facecolor=TEAL, edgecolor="none"))
+    t.set_bbox(dict(boxstyle="round,pad=0.6", facecolor=T.a2, edgecolor="none"))
 
 
 VISUALS = {
@@ -532,10 +521,10 @@ VISUALS = {
 }
 
 
-def render_slide(beat, path):
-    fig = _fig()
-    VISUALS[beat["visual"]](fig, beat)
-    fig.savefig(path, facecolor=BG, dpi=100)
+def render_slide(beat, path, T):
+    fig = _fig(T)
+    VISUALS[beat["visual"]](fig, beat, T)
+    fig.savefig(path, facecolor=T.bg, dpi=100)
     plt.close(fig)
 
 
@@ -611,9 +600,11 @@ def srt_time(t):
     return f"{int(h):02d}:{int(m):02d}:{int(s):02d},{int((s % 1) * 1000):03d}"
 
 
-def main():
+def main(theme_name=DEFAULT_THEME):
     if not shutil.which("ffmpeg"):
         sys.exit("ffmpeg not found. Run: sudo apt update && sudo apt install -y ffmpeg")
+
+    T = THEMES[theme_name]
 
     for d in (OUT, WORK):
         d.mkdir(exist_ok=True)
@@ -633,7 +624,7 @@ def main():
     slides = []
     for i, beat in enumerate(BEATS):
         p = WORK / f"slide_{i:02d}.png"
-        render_slide(beat, p)
+        render_slide(beat, p, T)
         slides.append(p)
 
     print("3/4  building segments")
@@ -653,7 +644,7 @@ def main():
                 f"zoompan=z='min(zoom+{ZOOM_RATE},1.06)':d={frames}"
                 f":x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s={W}x{H}:fps={FPS}")
         # fades go to the page colour, not black, or the light theme flashes dark
-        fade_col = BG.lstrip("#")
+        fade_col = T.bg.lstrip("#")
         vf = (f"[0:v]{zoom},fade=t=in:st=0:d={FADE}:color=0x{fade_col},"
               f"fade=t=out:st={d - FADE:.3f}:d={FADE}:color=0x{fade_col},"
               f"format=yuv420p[v]")
@@ -732,4 +723,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    main(sys.argv[1] if len(sys.argv) > 1 else DEFAULT_THEME)
