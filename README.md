@@ -1,5 +1,7 @@
 # script to vid
 
+Created by [Chima Ozonwoye](https://github.com/ChimaOzonwoye).
+
 Write a script. Get back a narrated video with visuals, subtitles, your logo
 and music. Runs on your own computer, free, no editing software.
 
@@ -51,6 +53,19 @@ that is usually where it ends.
 
 This does the whole production on your own computer for free, so money is not
 the reason it never gets made.
+
+This is a first step, not a finish line. It gets you making and publishing
+now, with what you already have. When you can afford better tools, use them.
+Not having the resources should not be the reason you never start.
+
+## Why there is no AI video in this
+
+Generating video or images with a model needs a graphics card most computers
+do not have. Paying a service to do it instead costs money per video. Either
+way, the requirement is the thing that stops people.
+
+So this draws everything from code. It runs on an ordinary laptop, it costs
+nothing, and it never gets slower or more expensive the more you make.
 
 ## Use
 
@@ -111,6 +126,12 @@ to put on a monetised channel. No attribution is required.
 
 The code is MIT licensed. See [LICENSE](LICENSE).
 
-## Credit
+## Contributing
 
-Built by [Chima Ozonwoye](https://github.com/ChimaOzonwoye).
+Contributions are welcome. Bugs, new scene layouts, new props, more voices,
+better installers, anything. Open an issue or send a pull request.
+
+The one rule: this has to stay usable by someone who has never opened a
+terminal. A change that adds a setup step, a config file to edit, or an error
+message only a developer can read is not an improvement here, however good the
+code is.
