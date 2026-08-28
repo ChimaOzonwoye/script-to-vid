@@ -20,6 +20,15 @@ PROPS = ("piggy", "coin", "coins", "jar")
 # never appears twice in a row
 ROTATION = ("scene_caption", "caption", "scene_character", "quiet")
 
+# Single figure scenes are drawn wide, medium or close, cycled so no two beats
+# in a row are framed alike, and flipped so the figure changes sides. The
+# choice lives on the beat rather than being picked at render time, so it is
+# part of the segment cache key and a rebuild looks the same as the first run.
+# Two figure scenes are two-shots by nature, and the chart and bubble scenes
+# need their space for the chart and the words.
+FRAMED = ("scene_character", "scene_caption")
+FRAMING_CYCLE = ("medium", "wide", "close")
+
 # directions that decorate a beat rather than pick its layout
 MODIFIERS = ("caption", "prop", "sub")
 
@@ -159,9 +168,18 @@ def parse(text):
     pending, para = [], []
     chapter_n = 0
     rot_i = 0
+    frame_i = 0
 
     def prev_visual():
         return beats[-1]["visual"] if beats else None
+
+    def add(b):
+        nonlocal frame_i
+        if b["visual"] in FRAMED:
+            b["framing"] = FRAMING_CYCLE[frame_i % len(FRAMING_CYCLE)]
+            b["flip"] = bool(frame_i % 2)
+            frame_i += 1
+        beats.append(b)
 
     def flush_para():
         nonlocal rot_i
@@ -180,8 +198,8 @@ def parse(text):
         cast_i = max(chapter_n - 1, 0)
         if primaries:
             try:
-                beats.append(_build_beat(primaries[0], modifiers, say,
-                                         cast_i, warnings))
+                add(_build_beat(primaries[0], modifiers, say,
+                                cast_i, warnings))
                 return
             except Exception:
                 # the page must never see a traceback; fall through to a
@@ -200,10 +218,10 @@ def parse(text):
                     b["cast_i"] = cast_i
                     if mpayload.strip().lower() in PROPS:
                         b["prop"] = mpayload.strip().lower()
-            beats.append(b)
+            add(b)
             return
         b, rot_i = _rotated_beat(say, cast_i, rot_i, prev_visual())
-        beats.append(b)
+        add(b)
 
     for line_no, raw in enumerate((text or "").splitlines(), 1):
         s = raw.strip()

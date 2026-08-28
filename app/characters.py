@@ -105,6 +105,23 @@ _HEAD_FACE = {"square": (0.00, 1.00, 1.00),
               "round": (0.00, 0.94, 1.00),
               "triangle": (-0.20, 0.78, 0.74)}
 
+# How far above the ground the head centre sits, and how far the head reaches
+# above its own centre, both per unit of head size. draw_character lays the
+# body out to these, and scenes divide by figure_height to scale a figure to a
+# chosen share of the frame instead of guessing at a head size.
+HEAD_CENTRE_H = 4.14
+_HEAD_REACH = {"square": 1.00, "round": 1.00, "triangle": 1.20}
+
+
+def figure_height(s=1.0, head="square"):
+    """How tall a drawn figure is, ground to crown, in axis units."""
+    return (HEAD_CENTRE_H + _HEAD_REACH.get(head, 1.0)) * s
+
+
+def scale_for_height(units, head="square"):
+    """The head size that makes a figure exactly `units` tall."""
+    return units / figure_height(1.0, head)
+
 
 def _draw_head(ax, x, cy, hs, shape):
     if shape == "round":
@@ -204,7 +221,7 @@ def draw_character(ax, x, y, s=1.0, pose="stand", expr="neutral", shirt=TEAL,
     _draw_head(ax, x, head_y, hs, head)
     _face(ax, x, head_y + fdy * s, s, expr, spread, chin)
     return {"hand_r": hands["R"], "hand_l": hands["L"],
-            "head": (x, head_y), "top": head_y + hs}
+            "head": (x, head_y), "top": y + figure_height(s, head)}
 
 
 # ----------------------------------------------------------------------
