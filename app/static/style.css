@@ -552,19 +552,7 @@ footer {
   margin-top: var(--s5);
   padding-top: var(--s3);
   border-top: 1px solid var(--edge-soft);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--s3);
-  flex-wrap: wrap;
   color: var(--dim);
   font-size: 13.5px;
 }
-footer a { font-weight: 600; text-decoration: none; }
-footer a:hover { text-decoration: underline; }
-footer .runs { display: inline-flex; align-items: center; gap: 7px; }
-footer .dot {
-  width: 7px; height: 7px; border-radius: 50%;
-  background: var(--accent);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 20%, transparent);
-}
+footer strong { color: var(--ink); font-weight: 600; }
