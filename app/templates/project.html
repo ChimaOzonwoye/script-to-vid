@@ -4,19 +4,26 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{{ name }} - script to vid</title>
+<link rel="icon" href="/static/icon.png">
 <link rel="stylesheet" href="/static/style.css">
 <style>
 :root {
   --bg: {{ theme.bg }}; --panel: {{ theme.panel }}; --ink: {{ theme.ink }};
   --dim: {{ theme.dim }}; --grid: {{ theme.grid }};
-  --accent: {{ theme.a2 }}; --accent2: {{ theme.a1 }};
+  --accent: {{ theme.ui }}; --accent2: {{ theme.a1 }};
+  --accent-pale: {{ theme.a2_pale }}; --accent2-pale: {{ theme.a1_pale }};
 }
 </style>
 </head>
 <body>
 <main>
-  <h1>{{ name }}</h1>
-  <p class="tagline"><a href="/">&larr; all projects</a></p>
+  <header class="masthead">
+    {% include "_mark.html" %}
+    <div class="who">
+      <h1>{{ name }}</h1>
+      <a class="back" href="/">&larr; all projects</a>
+    </div>
+  </header>
 
   <section class="step">
     <h2><span class="stepnum">1</span>Project</h2>
@@ -63,7 +70,7 @@
       <button type="button" class="quiet small" id="voice-play">Play sample</button>
       <audio id="voice-audio" preload="none"></audio>
     </div>
-    <p class="hint" style="margin-top:16px">Speed</p>
+    <p class="hint">Speed</p>
     <div class="rates">
       {% for value, label in rates %}
       <button type="button" class="rate quiet small {{ 'selected' if value == rate else '' }}"
@@ -118,14 +125,14 @@
       music, {{ music_length }} long.{% endif %}</div>
 
     {% if tracks %}
-    <p class="hint" style="margin-top:18px"><strong>Pick from the starter
+    <p class="hint"><strong>Pick from the starter
     library.</strong> These ship with the app and are free to use, including on a monetised channel.</p>
     <ul class="tracks">
       {% for t in tracks %}
       <li>
         <button type="button" class="small use-track" data-track="{{ t.file }}">Use</button>
         <span>{{ t.name }}</span>
-        <audio controls preload="none" src="/library/{{ t.file }}" style="height:32px; max-width: 200px"></audio>
+        <audio controls preload="none" src="/library/{{ t.file }}"></audio>
         <span class="len">{{ t.length }}</span>
       </li>
       {% endfor %}
@@ -154,6 +161,7 @@
     <h2><span class="stepnum">7</span>Generate</h2>
     <p><button id="generate">Generate the video</button></p>
     <p class="progress" id="progress"></p>
+    <div class="bar" id="bar"><i></i><i></i><i></i><i></i></div>
     <div id="gen-error" class="notice error"></div>
     <div id="result" {{ '' if has_video else 'hidden' }}>
       <video id="player" controls
@@ -166,6 +174,12 @@
       </div>
     </div>
   </section>
+
+  <footer>
+    <span class="runs"><span class="dot"></span>Running on this computer.
+      Nothing you write leaves it except the words the voice reads.</span>
+    <a href="https://github.com/ChimaOzonwoye/script-to-vid">script to vid</a>
+  </footer>
 </main>
 
 <script>
@@ -345,7 +359,8 @@ let polling = null;
 $("generate").addEventListener("click", async () => {
   $("gen-error").textContent = "";
   $("generate").disabled = true;
-  $("progress").textContent = "Starting…";
+  $("progress").textContent = "Starting...";
+  showBar("voice");
   const r = await fetch(`/p/${NAME}/generate`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -361,9 +376,22 @@ $("generate").addEventListener("click", async () => {
   polling = setInterval(poll, 800);
 });
 
+const STAGES = ["voice", "slides", "segments", "final"];
+
+function showBar(stage) {
+  const bar = $("bar");
+  if (!stage) { bar.classList.remove("on"); return; }
+  bar.classList.add("on");
+  const at = STAGES.indexOf(stage);
+  [...bar.children].forEach((seg, i) => {
+    seg.className = i < at ? "done" : i === at ? "now" : "";
+  });
+}
+
 async function poll() {
   const s = await (await fetch(`/p/${NAME}/status`)).json();
   $("progress").textContent = s.message || "";
+  showBar(s.state === "running" ? s.stage : null);
   if (s.state === "done" || s.state === "error") {
     clearInterval(polling);
     $("generate").disabled = false;

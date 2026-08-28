@@ -37,3 +37,23 @@ def test_mix():
     assert mix("#000000", "#ffffff", 0) == "#000000"
     assert mix("#000000", "#ffffff", 1) == "#ffffff"
     assert mix("#000000", "#ffffff", 0.5) == "#808080"
+
+
+def test_every_theme_has_a_legible_control_colour():
+    """Two palettes lead with amber, and white text on amber is unreadable.
+    The UI accent is derived rather than picked, so this has to hold for any
+    theme added later too."""
+    from app.themes import contrast_on_white
+    for T in THEMES.values():
+        assert HEX.match(T.ui.lower()), (T.name, T.ui)
+        assert contrast_on_white(T.ui) >= 4.5, (T.name, T.ui,
+                                                contrast_on_white(T.ui))
+
+
+def test_the_control_colour_still_belongs_to_the_theme():
+    """It is a darkened accent, not a colour from nowhere."""
+    from app.themes import mix
+    for T in THEMES.values():
+        options = [mix(a, T.ink, i / 20)
+                   for a in (T.a1, T.a2) for i in range(21)]
+        assert T.ui in options, (T.name, T.ui)

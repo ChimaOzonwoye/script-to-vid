@@ -115,6 +115,9 @@ if ($desktop -and (Test-Path $desktop)) {
         $lnk = $shell.CreateShortcut((Join-Path $desktop "script to vid.lnk"))
         $lnk.TargetPath = Join-Path $Dest "run.bat"
         $lnk.WorkingDirectory = $Dest
+        $lnk.Description = "Turn a script into a narrated video"
+        $icon = Join-Path $Dest "assets\icon.ico"
+        if (Test-Path $icon) { $lnk.IconLocation = $icon }
         $lnk.Save()
         $shortcut = $true
     } catch { }

@@ -4,20 +4,27 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>script to vid</title>
+<link rel="icon" href="/static/icon.png">
 <link rel="stylesheet" href="/static/style.css">
 <style>
 :root {
   --bg: {{ theme.bg }}; --panel: {{ theme.panel }}; --ink: {{ theme.ink }};
   --dim: {{ theme.dim }}; --grid: {{ theme.grid }};
-  --accent: {{ theme.a2 }}; --accent2: {{ theme.a1 }};
+  --accent: {{ theme.ui }}; --accent2: {{ theme.a1 }};
+  --accent-pale: {{ theme.a2_pale }}; --accent2-pale: {{ theme.a1_pale }};
 }
 </style>
 </head>
 <body>
 <main>
-  <h1>script to vid</h1>
-  <p class="tagline">Write a script, pick a look, press Generate. Out comes a
-  narrated video.</p>
+  <header class="masthead">
+    {% include "_mark.html" %}
+    <div class="who">
+      <h1>script to vid</h1>
+      <p class="tagline">Write a script, pick a look, press Generate. Out
+      comes a narrated video.</p>
+    </div>
+  </header>
 
   {% if projects %}
   <section class="step">
@@ -28,7 +35,8 @@
       {% for p in projects %}
       <li>
         <a href="/p/{{ p.name }}">{{ p.name }}</a>
-        <small>{{ "video ready" if p.has_video else "no video yet" }}</small>
+        <span class="pill {{ 'ready' if p.has_video else '' }}">{{
+          "video ready" if p.has_video else "no video yet" }}</span>
       </li>
       {% endfor %}
     </ul>
@@ -59,6 +67,12 @@
     minute. After that, only the lines you change are made again.</p>
   </section>
   {% endif %}
+
+  <footer>
+    <span class="runs"><span class="dot"></span>Running on this computer.
+      Nothing you write leaves it except the words the voice reads.</span>
+    <a href="https://github.com/ChimaOzonwoye/script-to-vid">script to vid</a>
+  </footer>
 </main>
 </body>
 </html>

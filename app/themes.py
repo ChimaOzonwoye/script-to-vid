@@ -23,6 +23,33 @@ class Theme:
     a2: str        # secondary accent
     a2_hi: str
     a2_pale: str
+    ui: str        # accent for solid controls, dark enough for white text
+
+
+def _luminance(c):
+    v = [int(c[i:i + 2], 16) / 255 for i in (1, 3, 5)]
+    v = [x / 12.92 if x <= 0.03928 else ((x + 0.055) / 1.055) ** 2.4 for x in v]
+    return 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2]
+
+
+def contrast_on_white(c):
+    return 1.05 / (_luminance(c) + 0.05)
+
+
+def _ui_accent(a1, a2, ink):
+    """The accent a solid button can be built from.
+
+    Two of the four palettes lead with amber, and white text on amber is
+    unreadable. Start from whichever accent is already darker and deepen it
+    until white text on it clears 4.5 to 1, so every theme has a usable
+    control colour rather than a pretty one.
+    """
+    base = a1 if _luminance(a1) < _luminance(a2) else a2
+    for step in range(0, 21):
+        c = mix(base, ink, step / 20)
+        if contrast_on_white(c) >= 4.5:
+            return c
+    return ink
 
 
 def mix(c1, c2, t):
@@ -42,6 +69,7 @@ def _theme(name, label, bg, ink, a1, a2, **fixed):
         a2_hi=mix(a2, ink, 0.30), a2_pale=mix(a2, bg, 0.68),
     )
     derived.update(fixed)
+    derived["ui"] = _ui_accent(derived["a1"], derived["a2"], ink)
     return Theme(name=name, label=label, **derived)
 
 

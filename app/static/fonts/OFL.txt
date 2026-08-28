@@ -1,0 +1,8 @@
+These fonts are licensed under the SIL Open Font License, Version 1.1.
+
+Inter: Copyright (c) 2016 The Inter Project Authors.
+Fraunces: Copyright (c) 2019 The Fraunces Project Authors.
+
+The full licence is at https://openfontlicense.org and permits bundling and
+redistribution with this software, including in commercial use, provided the
+fonts are not sold on their own.

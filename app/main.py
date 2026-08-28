@@ -312,7 +312,7 @@ def _render_worker(name, beats, theme, voice, rate):
     def progress(stage, done, total):
         n, label = STAGES[stage]
         beat = f" ({min(done + 1, total)} of {total})" if total > 1 else ""
-        status.update(stage=stage, done=done, total=total,
+        status.update(state="running", stage=stage, done=done, total=total,
                       message=f"Stage {n} of 4: {label}{beat}")
 
     try:
@@ -342,7 +342,7 @@ async def generate(name: str, request: Request):
         return fail("The script is empty. Write some narration first.")
     cfg = projects.settings(name)
     theme = THEMES.get(cfg["theme"], THEMES[DEFAULT_THEME])
-    RENDERS[name] = {"state": "running", "message": "Starting…"}
+    RENDERS[name] = {"state": "running", "message": "Starting..."}
     threading.Thread(target=_render_worker,
                      args=(name, r["beats"], theme, cfg["voice"], cfg["rate"]),
                      daemon=True).start()

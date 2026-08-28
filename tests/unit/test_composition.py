@@ -189,3 +189,16 @@ def test_figures_are_off_centre():
                     "framing": framing, "flip": flip}
             x, _, _ = scenes._place(beat)
             assert abs(x) > scenes.STAGE_W * 0.08, (framing, flip, x)
+
+
+def test_the_page_serves_its_own_fonts():
+    """Vendored so the app never reaches the network for a typeface and
+    there is no flash of unstyled text."""
+    from pathlib import Path
+    root = Path(__file__).resolve().parents[2]
+    css = (root / "app" / "static" / "style.css").read_text()
+    assert "fonts.googleapis" not in css and "fonts.gstatic" not in css
+    for face in ("inter-latin", "fraunces-latin"):
+        assert f"/static/fonts/{face}.woff2" in css
+        assert (root / "app" / "static" / "fonts" / f"{face}.woff2").exists()
+    assert (root / "app" / "static" / "fonts" / "OFL.txt").exists()
