@@ -65,8 +65,15 @@ def test_paste_to_download(server):
         page.fill("#script", SCRIPT)
         page.wait_for_selector("#script-info:has-text('words')")
 
-        page.click('button[aria-label="Use the Sky theme"]')
-        page.wait_for_url(f"**/p/{name}**")
+        # the theme swatch is a form, so clicking it reloads the page. The
+        # page is already at this URL, so waiting on the URL returns at once
+        # and the next click races the navigation; wait for the navigation
+        # itself instead.
+        with page.expect_navigation():
+            page.click('button[aria-label="Use the Sky theme"]')
+        page.wait_for_selector("#script-info:has-text('words')")
+        assert "browser" in page.input_value("#script"), \
+            "the script must survive the reload the theme click causes"
 
         page.click("#generate")
         page.wait_for_selector(
