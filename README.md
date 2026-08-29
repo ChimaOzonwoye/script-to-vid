@@ -1,7 +1,5 @@
 # script to vid
 
-Created by [Chima Ozonwoye](https://github.com/ChimaOzonwoye).
-
 Write a script. Get back a narrated video with visuals, subtitles, your logo
 and music. Runs on your own computer, free, no editing software.
 
