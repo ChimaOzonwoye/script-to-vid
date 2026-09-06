@@ -120,7 +120,10 @@ def _caption(fig, T, b, text, side=None):
         _fit(fig, t, 1728)
 
 
-def _draw(ax, b, T, x, ground, s, pose=None, expr=None, cast_i=None):
+def _draw(ax, b, T, x, ground, s, pose=None, expr=None, cast_i=None,
+          speaks=True):
+    """`speaks` is off for a figure that is not the one delivering the line,
+    so a two-shot does not have both mouths moving to the same words."""
     i = b.get("cast_i", 0) if cast_i is None else cast_i
     head, body = _CAST[i % len(_CAST)]
     shirt = [T.a2, T.a1, ch.PINK][i % 3]
@@ -128,7 +131,9 @@ def _draw(ax, b, T, x, ground, s, pose=None, expr=None, cast_i=None):
         ax, x, ground, s=s,
         pose=pose or b.get("pose", "stand"),
         expr=expr or b.get("expr", "neutral"),
-        head=b.get("head", head), body=b.get("body", body), shirt=shirt)
+        head=b.get("head", head), body=b.get("body", body), shirt=shirt,
+        eyes=b.get("eyes", "open") if speaks else "open",
+        mouth=b.get("mouth", "closed") if speaks else "closed")
 
 
 def _prop(ax, name, x, ground, s, hand=None):
@@ -179,7 +184,8 @@ def scene_duo(fig, b, T):
                        height=TWO_SHOT_HEIGHT, side=1)
     left = _draw(ax, b, T, lx, ground, s, pose=b.get("pose", "offer"))
     _draw(ax, b, T, rx, ground, rs, pose="stand",
-          expr=b.get("expr2", "happy"), cast_i=b.get("cast_i", 0) + 1)
+          expr=b.get("expr2", "happy"), cast_i=b.get("cast_i", 0) + 1,
+          speaks=False)
     text = b.get("bubble") or ""
     if text:
         bs = min(1.4, 36 / max(len(text), 12))

@@ -38,6 +38,7 @@ import numpy as np
 from matplotlib.colors import to_rgb
 from PIL import Image
 
+from . import animate
 from .themes import mix
 from .voices import DEFAULT_VOICE as VOICE, DEFAULT_RATE as RATE
 W, H = 1920, 1080
@@ -59,7 +60,7 @@ TTS_PARALLEL = 4            # how many voice requests to run at once
 
 WPM = 155                   # matches the default voice at the default rate
 
-ENGINE_V = "1"              # bump to invalidate every cached segment
+ENGINE_V = "2"              # bump to invalidate every cached segment
 
 
 class RenderError(Exception):
@@ -420,11 +421,11 @@ VISUALS = {
 }
 
 
-def render_slide(beat, path, T):
+def render_slide(beat, path, T, eyes="open", mouth="closed"):
     from . import scenes
     fig = _fig(T)
     draw = VISUALS.get(beat["visual"]) or scenes.VISUALS[beat["visual"]]
-    draw(fig, beat, T)
+    draw(fig, {**beat, "eyes": eyes, "mouth": mouth}, T)
     fig.savefig(path, facecolor=T.bg, dpi=100)
     plt.close(fig)
 
@@ -440,10 +441,15 @@ def voice_key(text, voice, rate):
 def _fake_voice(text, path):
     """Stand-in used when STV_FAKE_TTS is set: a quiet tone the length the
     real line would be. CI machines can't always reach the voice service,
-    and tests must not depend on it."""
+    and tests must not depend on it.
+
+    It pulses at roughly a syllable a beat, because the lip sync reads the
+    loudness of this file and a flat tone would hold the mouth wide open for
+    the whole line."""
     d = max(1.0, len(text.split()) / (WPM / 60))
     run(["ffmpeg", "-y", "-f", "lavfi", "-i",
-         f"sine=frequency=440:duration={d:.2f}", "-af", "volume=0.2", str(path)])
+         f"sine=frequency=440:duration={d:.2f}",
+         "-af", "tremolo=f=4.5:d=0.9,volume=0.2", str(path)])
 
 
 async def _speak_all(lines, paths, voice, rate, on_line=None):
@@ -571,6 +577,20 @@ def _prepared(beats, project):
     return out
 
 
+def animated(beat):
+    """Whether this beat has a character in it to blink and speak."""
+    from . import scenes
+    return beat["visual"] in scenes.VISUALS
+
+
+def variant_key(beat, theme):
+    """Keyed on the drawing alone, with the narration left out, so rewording
+    a line reuses its sprites and only the mouth track is measured again."""
+    scene = {k: v for k, v in beat.items() if k != "say"}
+    ident = json.dumps([ENGINE_V, scene, asdict(theme)], sort_keys=True)
+    return hashlib.sha1(ident.encode()).hexdigest()
+
+
 def segment_key(beat, theme, audio_key):
     ident = json.dumps([ENGINE_V, beat, asdict(theme), audio_key], sort_keys=True)
     return hashlib.sha1(ident.encode()).hexdigest()
@@ -610,7 +630,9 @@ def render_video(project, beats, theme, voice=VOICE, rate=RATE, progress=None):
     work = cache / "work"
     vdir = cache / "voice"
     sdir = cache / "segments"
-    for d in (out_dir, work, vdir, sdir):
+    vardir = cache / "variants"
+    mdir = cache / "mouth"
+    for d in (out_dir, work, vdir, sdir, vardir, mdir):
         d.mkdir(parents=True, exist_ok=True)
 
     def report(stage, done, total):
@@ -641,17 +663,25 @@ def render_video(project, beats, theme, voice=VOICE, rate=RATE, progress=None):
     segs = [sdir / f"{sk}.mp4" for sk in seg_keys]
     missing = [i for i, s in enumerate(segs) if not s.exists()]
 
+    def variant(i, eyes, mouth):
+        return vardir / f"{variant_key(beats[i], theme)}_{eyes}_{mouth}.png"
+
     for j, i in enumerate(missing):
         report("slides", j, len(missing))
         b = beats[i]
         if b["visual"] == "outro":
             b = {**b, "logo_big": str(work / "logo_big.png")}
-        render_slide(b, work / f"slide_{i:02d}.png", theme)
+        if animated(b):
+            for eyes, mouth in animate.VARIANTS:
+                p = variant(i, eyes, mouth)
+                if not p.exists():
+                    render_slide(b, p, theme, eyes, mouth)
+        else:
+            render_slide(b, work / f"slide_{i:02d}.png", theme)
     report("slides", len(missing), len(missing))
 
     for j, i in enumerate(missing):
         report("segments", j, len(missing))
-        img = work / f"slide_{i:02d}.png"
         snd = paths[i]
         spoken = duration(snd)
         d = LEAD_SILENCE + spoken + BREATH
@@ -659,9 +689,28 @@ def render_video(project, beats, theme, voice=VOICE, rate=RATE, progress=None):
         # zoompan works in whole pixels, so at 1080p the crop jumps a pixel at a
         # time and the slide looks shaky. Scaling up first makes each step a
         # fraction of an output pixel, and the downscale averages it away.
-        zoom = (f"scale={W * PRESCALE}:{H * PRESCALE}:flags=bilinear,"
-                f"zoompan=z='min(zoom+{ZOOM_RATE},1.06)':d={frames}"
-                f":x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s={W}x{H}:fps={FPS}")
+        prescale = f"scale={W * PRESCALE}:{H * PRESCALE}:flags=bilinear,"
+        pan = f":x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s={W}x{H}:fps={FPS}"
+        if animated(beats[i]):
+            mouths = [*["closed"] * int(round(LEAD_SILENCE * FPS)),
+                      *animate.cached_track(snd, FPS, mdir)]
+            mouths = (mouths + ["closed"] * frames)[:frames]
+            # the same line always blinks the same way, because the seed comes
+            # from the line rather than from where it sits in the script
+            blinks = animate.blink_frames(frames, FPS, int(keys[i][:8], 16))
+            lst = work / f"frames_{i:02d}.txt"
+            animate.frame_list(mouths, blinks,
+                               lambda e, m: variant(i, e, m).resolve(), lst, FPS)
+            src = ["-f", "concat", "-safe", "0", "-i", str(lst)]
+            # zoompan holds each input frame for d output frames, so a sequence
+            # needs d=1 or every frame after the first is dropped. At d=1 its
+            # zoom accumulator restarts on each input frame, so the ramp is
+            # counted from the output frame number instead.
+            zoom = (prescale + f"zoompan=z='min(1+{ZOOM_RATE}*on,1.06)':d=1" + pan)
+        else:
+            src = ["-loop", "1", "-i", str(work / f"slide_{i:02d}.png")]
+            zoom = (prescale
+                    + f"zoompan=z='min(zoom+{ZOOM_RATE},1.06)':d={frames}" + pan)
         # fades go to the page colour, not black, or the light theme flashes dark
         fade_col = theme.bg.lstrip("#")
         vf = (f"[0:v]{zoom},fade=t=in:st=0:d={FADE}:color=0x{fade_col},"
@@ -673,7 +722,7 @@ def render_video(project, beats, theme, voice=VOICE, rate=RATE, progress=None):
               f"afade=t=out:st={d - 0.25:.3f}:d=0.25[a]")
         # fast intermediate encode; the final pass does the real compression
         tmp = work / "seg_tmp.mp4"
-        run(["ffmpeg", "-y", "-loop", "1", "-i", str(img), "-i", str(snd),
+        run(["ffmpeg", "-y", *src, "-i", str(snd),
              "-filter_complex", f"{vf};{af}",
              "-map", "[v]", "-map", "[a]",
              "-c:v", "libx264", "-preset", "veryfast", "-crf", "16",

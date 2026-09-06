@@ -44,7 +44,8 @@ def _limb(ax, pts, lw=LW, color=INK, z=2):
 EXPRESSIONS = ("neutral", "happy", "worried", "surprised", "annoyed", "thinking")
 
 
-def _face(ax, cx, cy, s, expr, spread=1.0, chin=1.0):
+def _face(ax, cx, cy, s, expr, spread=1.0, chin=1.0, eyes="open",
+          mouth="closed"):
     ex, ey = 0.52 * s * spread, 0.10 * s   # eye offset from head centre
     er, pr = 0.30 * s, 0.135 * s         # eye radius, pupil radius
 
@@ -57,6 +58,10 @@ def _face(ax, cx, cy, s, expr, spread=1.0, chin=1.0):
 
     for side in (-1, 1):
         x = cx + side * ex
+        if eyes == "closed":
+            ax.plot([x - er, x + er], [cy + ey, cy + ey], color=INK, lw=LW,
+                    solid_capstyle="round", zorder=5)
+            continue
         ax.add_patch(_ink(Circle((x, cy + ey), er, facecolor="white", zorder=4), 3.2))
         ax.add_patch(Circle((x + look[0] * s, cy + ey + look[1] * s), pr,
                             facecolor=INK, zorder=5))
@@ -74,7 +79,13 @@ def _face(ax, cx, cy, s, expr, spread=1.0, chin=1.0):
                 solid_capstyle="round", zorder=5)
 
     my = cy - 0.44 * s * chin
-    if expr in ("happy",):
+    if mouth != "closed":
+        h = (0.16 if mouth == "mid" else 0.30) * s
+        ax.add_patch(_ink(FancyBboxPatch(
+            (cx - 0.31 * s, my - h / 2), 0.62 * s, h,
+            boxstyle="round,pad=0,rounding_size=" + str(min(0.09 * s, h / 2)),
+            facecolor=INK, zorder=5), 3.2))
+    elif expr in ("happy",):
         ax.add_patch(Arc((cx, my + 0.14 * s), 0.85 * s, 0.62 * s, theta1=200,
                          theta2=340, color=INK, lw=LW, zorder=5))
     elif expr == "worried":
@@ -179,7 +190,7 @@ _ARMS = {
 
 
 def draw_character(ax, x, y, s=1.0, pose="stand", expr="neutral", shirt=TEAL,
-                   head="square", body="box"):
+                   head="square", body="box", eyes="open", mouth="closed"):
     """Draw a figure standing on the ground at (x, y).
 
     `s` is the head size. `head` and `body` pick the silhouette, so a cast of
@@ -219,7 +230,7 @@ def draw_character(ax, x, y, s=1.0, pose="stand", expr="neutral", shirt=TEAL,
     # head last so it sits above the shoulders
     fdy, spread, chin = _HEAD_FACE[head]
     _draw_head(ax, x, head_y, hs, head)
-    _face(ax, x, head_y + fdy * s, s, expr, spread, chin)
+    _face(ax, x, head_y + fdy * s, s, expr, spread, chin, eyes, mouth)
     return {"hand_r": hands["R"], "hand_l": hands["L"],
             "head": (x, head_y), "top": y + figure_height(s, head)}
 
