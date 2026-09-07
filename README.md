@@ -1,7 +1,8 @@
 # script to vid
 
 Write a script. Get back a narrated video with visuals, subtitles, your logo
-and music. Runs on your own computer, free, no editing software.
+and music. Characters blink and their mouths move in time with the narration.
+Runs on your own computer, free, no editing software.
 
 ## Install
 
