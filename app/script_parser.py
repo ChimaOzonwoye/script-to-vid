@@ -12,6 +12,7 @@ script does not invalidate the cache of the beats below it.
 
 import textwrap
 
+from .backgrounds import BACKGROUNDS
 from .characters import EXPRESSIONS, POSES, HEADS
 
 PROPS = ("piggy", "coin", "coins", "jar")
@@ -30,7 +31,7 @@ FRAMED = ("scene_character", "scene_caption")
 FRAMING_CYCLE = ("medium", "wide", "close")
 
 # directions that decorate a beat rather than pick its layout
-MODIFIERS = ("caption", "prop", "sub")
+MODIFIERS = ("caption", "prop", "sub", "scene")
 
 SLIDES = ("sweep", "title", "gauge", "callout", "timeline", "jars", "terms",
           "path", "growth", "quiet", "recap", "outro")
@@ -71,6 +72,16 @@ def _character_fields(payload, line_no, warnings):
                 f"Line {line_no}: '{tok}' isn't a pose, an expression or a "
                 "head shape, so it was ignored.")
     return fields
+
+
+def _background(payload, line_no, warnings):
+    """The setting a `> scene:` direction names, or None with a warning."""
+    name = payload.strip().lower().replace(" ", "_")
+    if name in BACKGROUNDS:
+        return name
+    warnings.append(f"Line {line_no}: there is no '{name}' setting. The "
+                    f"settings are: {', '.join(sorted(BACKGROUNDS))}.")
+    return None
 
 
 def _build_beat(primary, modifiers, say, cast_i, warnings):
@@ -137,6 +148,14 @@ def _build_beat(primary, modifiers, say, cast_i, warnings):
             else:
                 warnings.append(f"Line {mline}: there is no '{p}' prop. The "
                                 f"props are: {', '.join(PROPS)}.")
+        elif mname == "scene":
+            name = _background(mpayload, mline, warnings)
+            if name and not b["visual"].startswith("scene_"):
+                warnings.append(f"Line {mline}: a setting is only drawn behind "
+                                "a character, and this beat has none, so it "
+                                "was ignored.")
+            elif name:
+                b["background"] = name
 
     if b["visual"].startswith("scene_"):
         b["cast_i"] = cast_i
@@ -210,7 +229,7 @@ def parse(text):
         if modifiers and not primaries:
             b = {"say": say, "visual": "caption",
                  "caption": _auto_headline(say)}
-            for mname, mpayload, _ in modifiers:
+            for mname, mpayload, mline in modifiers:
                 if mname == "caption":
                     b["caption"] = mpayload
                 elif mname == "prop":
@@ -218,6 +237,12 @@ def parse(text):
                     b["cast_i"] = cast_i
                     if mpayload.strip().lower() in PROPS:
                         b["prop"] = mpayload.strip().lower()
+                elif mname == "scene":
+                    name = _background(mpayload, mline, warnings)
+                    if name:
+                        b["visual"] = "scene_character"
+                        b["cast_i"] = cast_i
+                        b["background"] = name
             add(b)
             return
         b, rot_i = _rotated_beat(say, cast_i, rot_i, prev_visual())

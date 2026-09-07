@@ -107,9 +107,14 @@ all the way through.
 
 Directions include `character`, `duo`, `bubbles`, `split`, `chart`, `gauge`,
 `timeline`, `growth`, `jars`, `terms`, `callout`, `quiet`, `recap`, `title`,
-`sweep`, `outro`, and the modifiers `caption`, `sub` and `prop`. Anything the
-parser does not recognise becomes a plain caption slide and a note above the
-Generate button, never an error.
+`sweep`, `outro`, and the modifiers `caption`, `sub`, `prop` and `scene`.
+Anything the parser does not recognise becomes a plain caption slide and a
+note above the Generate button, never an error.
+
+`> scene: kitchen` puts a character in a room. The settings are `classroom`,
+`office`, `kitchen`, `living room`, `street` and `plain`, and `plain` is what
+you get if you never ask, so every script you have already written looks the
+same as it did.
 
 The full example is in `example-script.txt`.
 

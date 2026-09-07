@@ -20,6 +20,7 @@ import textwrap
 
 import numpy as np
 
+from . import backgrounds as bg
 from . import characters as ch
 from .themes import mix
 
@@ -81,11 +82,13 @@ def _place(b, height=None, side=None):
     return side * f["x"] * (STAGE_W / 2), ground, s
 
 
-def _stage(fig):
+def _stage(fig, b=None, T=None, ground=GROUND_Y):
     ax = fig.add_axes([0, 0, 1, 1])
     ax.axis("off")
     ax.set_xlim(X_MIN, X_MIN + STAGE_W)
     ax.set_ylim(Y_MIN, Y_MIN + STAGE_H)
+    if b is not None:
+        bg.draw(ax, b.get("background"), T, ground)
     return ax
 
 
@@ -154,8 +157,8 @@ def _prop(ax, name, x, ground, s, hand=None):
 
 def scene_character(fig, b, T):
     """One figure, an optional prop, framed wide, medium or close."""
-    ax = _stage(fig)
     x, ground, s = _place(b)
+    ax = _stage(fig, b, T, ground)
     if ground >= Y_MIN:
         ch.ground(ax, ground)
     anchors = _draw(ax, b, T, x, ground, s)
@@ -167,8 +170,8 @@ def scene_character(fig, b, T):
 
 def scene_caption(fig, b, T):
     """One figure and a large caption, the caption carrying the beat."""
-    ax = _stage(fig)
     x, ground, s = _place(b)
+    ax = _stage(fig, b, T, ground)
     if ground >= Y_MIN:
         ch.ground(ax, ground)
     _draw(ax, b, T, x, ground, s)
@@ -177,7 +180,7 @@ def scene_caption(fig, b, T):
 
 def scene_duo(fig, b, T):
     """Two figures facing each other, the left one speaking."""
-    ax = _stage(fig)
+    ax = _stage(fig, b, T)
     ch.ground(ax, GROUND_Y)
     lx, ground, s = _place(b, height=TWO_SHOT_HEIGHT, side=-1)
     rx, _, rs = _place({**b, "cast_i": b.get("cast_i", 0) + 1},
@@ -196,7 +199,7 @@ def scene_duo(fig, b, T):
 
 def scene_bubbles(fig, b, T):
     """One figure puzzling at floating words."""
-    ax = _stage(fig)
+    ax = _stage(fig, b, T)
     ch.ground(ax, GROUND_Y)
     x, ground, s = _place(b, height=0.58, side=-1)
     _draw(ax, b, T, x, ground, s, pose=b.get("pose", "think"),
@@ -220,7 +223,7 @@ def scene_split(fig, b, T):
     subject. Props are drawn only when the script asks for one, scattered on
     the left and gathered on the right.
     """
-    ax = _stage(fig)
+    ax = _stage(fig, b, T)
     ch.ground(ax, GROUND_Y)
     ax.plot([0, 0], [GROUND_Y, 14.5], color=T.grid, lw=3, zorder=1)
 
@@ -257,7 +260,7 @@ def scene_split(fig, b, T):
 
 def scene_chart(fig, b, T):
     """A figure presenting a chart drawn by the engine."""
-    ax = _stage(fig)
+    ax = _stage(fig, b, T)
     ch.ground(ax, GROUND_Y)
     x, ground, s = _place(b, height=0.58, side=-1)
     _draw(ax, b, T, x, ground, s, pose=b.get("pose", "point"),
