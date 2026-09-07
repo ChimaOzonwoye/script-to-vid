@@ -60,7 +60,7 @@ TTS_PARALLEL = 4            # how many voice requests to run at once
 
 WPM = 155                   # matches the default voice at the default rate
 
-ENGINE_V = "2"              # bump to invalidate every cached segment
+ENGINE_V = "3"              # bump to invalidate every cached segment
 
 
 class RenderError(Exception):

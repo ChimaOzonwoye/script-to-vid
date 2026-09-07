@@ -44,19 +44,39 @@ DEFAULT_FRAMING = "medium"
 # two figures need more room each, so they sit between wide and medium
 TWO_SHOT_HEIGHT = 0.56
 
-_CAST = [("square", "box"), ("round", "tall"), ("triangle", "round")]
+# The cast is fixed so a recurring character stays recognisable: the same
+# index always gives the same silhouette, hair, skin and shirt. Skin tones
+# vary because a cast that is all one tone is a choice too, and it is not one
+# worth shipping as the default.
+_CAST = [
+    {"head": "square", "body": "box", "hair": "short", "skin": "#f3d3b3"},
+    {"head": "round", "body": "tall", "hair": "bun", "skin": "#8a5a3b"},
+    {"head": "triangle", "body": "round", "hair": "crop", "skin": "#d8a875"},
+    {"head": "square", "body": "tall", "hair": "curls", "skin": "#5c3a24"},
+    {"head": "round", "body": "box", "hair": "cap", "skin": "#f0c9a0"},
+    {"head": "triangle", "body": "tall", "hair": "long", "skin": "#a8714a"},
+]
 
 
 def cast_member(i, T):
-    head, body = _CAST[i % len(_CAST)]
-    shirt = [T.a2, T.a1, ch.PINK][i % 3]
-    return head, body, shirt
+    c = _CAST[i % len(_CAST)]
+    return c["head"], c["body"], [T.a2, T.a1, ch.PINK][i % 3]
+
+
+def _cast(b, i=None):
+    """This beat's character, with anything the script named winning."""
+    i = b.get("cast_i", 0) if i is None else i
+    c = dict(_CAST[i % len(_CAST)])
+    for field in ("head", "body", "hair", "skin"):
+        if b.get(field):
+            c[field] = b[field]
+    return c
 
 
 def _shape(b):
     """The head and body this beat will actually be drawn with."""
-    head, body = _CAST[b.get("cast_i", 0) % len(_CAST)]
-    return b.get("head", head), b.get("body", body)
+    c = _cast(b)
+    return c["head"], c["body"]
 
 
 def _framing(b):
@@ -72,9 +92,9 @@ def _place(b, height=None, side=None):
     """Where a figure goes and how big, computed from its framing."""
     f = _framing(b)
     head, _ = _shape(b)
-    s = ch.scale_for_height((height or f["height"]) * STAGE_H, head)
+    s = ch.scale_for_height((height or f["height"]) * STAGE_H, head, ch.HEAD_RATIO)
     if "head_y" in f and height is None:
-        ground = Y_MIN + f["head_y"] * STAGE_H - ch.HEAD_CENTRE_H * s
+        ground = Y_MIN + f["head_y"] * STAGE_H - ch.head_centre_h(ch.HEAD_RATIO) * s
     else:
         ground = GROUND_Y
     if side is None:
@@ -128,13 +148,14 @@ def _draw(ax, b, T, x, ground, s, pose=None, expr=None, cast_i=None,
     """`speaks` is off for a figure that is not the one delivering the line,
     so a two-shot does not have both mouths moving to the same words."""
     i = b.get("cast_i", 0) if cast_i is None else cast_i
-    head, body = _CAST[i % len(_CAST)]
-    shirt = [T.a2, T.a1, ch.PINK][i % 3]
+    c = _cast(b, i)
     return ch.draw_character(
         ax, x, ground, s=s,
         pose=pose or b.get("pose", "stand"),
         expr=expr or b.get("expr", "neutral"),
-        head=b.get("head", head), body=b.get("body", body), shirt=shirt,
+        head=c["head"], body=c["body"], shirt=[T.a2, T.a1, ch.PINK][i % 3],
+        hair=c["hair"], skin=c["skin"], head_ratio=ch.HEAD_RATIO,
+        collar=True, shade=True,
         eyes=b.get("eyes", "open") if speaks else "open",
         mouth=b.get("mouth", "closed") if speaks else "closed")
 

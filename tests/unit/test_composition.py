@@ -176,7 +176,7 @@ def test_every_head_shape_fills_the_same_share_of_the_frame():
             beat = {"visual": "scene_caption", "cast_i": i, "framing": framing}
             head, _ = scenes._shape(beat)
             _, _, s = scenes._place(beat)
-            heights.append(ch.figure_height(s, head))
+            heights.append(ch.figure_height(s, head, ch.HEAD_RATIO))
         want = f["height"] * scenes.STAGE_H
         assert max(abs(h - want) for h in heights) < 1e-9, framing
 

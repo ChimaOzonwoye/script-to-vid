@@ -13,7 +13,7 @@ script does not invalidate the cache of the beats below it.
 import textwrap
 
 from .backgrounds import BACKGROUNDS
-from .characters import EXPRESSIONS, POSES, HEADS
+from .characters import EXPRESSIONS, HAIRS, HEADS, POSES
 
 PROPS = ("piggy", "coin", "coins", "jar")
 
@@ -67,10 +67,14 @@ def _character_fields(payload, line_no, warnings):
             fields["pose"] = tok
         elif tok in HEADS:
             fields["head"] = tok
+        elif tok in HAIRS:
+            fields["hair"] = tok
         else:
             warnings.append(
-                f"Line {line_no}: '{tok}' isn't a pose, an expression or a "
-                "head shape, so it was ignored.")
+                f"Line {line_no}: '{tok}' isn't a pose, an expression, a head "
+                f"shape or a hair style. Poses: {', '.join(POSES)}. "
+                f"Expressions: {', '.join(EXPRESSIONS)}. "
+                f"Heads: {', '.join(HEADS)}. Hair: {', '.join(HAIRS)}.")
     return fields
 
 
