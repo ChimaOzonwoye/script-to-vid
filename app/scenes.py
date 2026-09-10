@@ -176,6 +176,41 @@ def _prop(ax, name, x, ground, s, hand=None):
         ch.prop_jar(ax, x, ground, s=0.7 * s, fill=0.65)
 
 
+# The presenter stands in one third of the frame and stays there. Content
+# fills the rest and is the only thing that changes between beats, which is
+# what makes a run of them feel like a host talking rather than a slideshow.
+# The side alternates at chapters, not per beat, so it reads as a cut to the
+# other camera rather than the figure hopping about.
+PRESENTER = {"height": 0.66, "x": 0.54}
+
+
+def presenter_x(side):
+    return side * PRESENTER["x"] * (STAGE_W / 2)
+
+
+def _presenter_content(fig, T, b, side):
+    """Headline centred in the space the figure is not standing in."""
+    text = (b.get("caption") or b.get("headline") or "").strip()
+    if not text:
+        return
+    t = fig.text(0.5 - side * 0.17, 0.54,
+                 "\n".join(textwrap.wrap(text.upper(), 15)),
+                 ha="center", va="center", fontsize=56, color=T.ink,
+                 fontweight="bold", linespacing=1.16)
+    _fit(fig, t, 980)
+
+
+def scene_presenter(fig, b, T):
+    """One figure held in place, the content beside them changing."""
+    side = -1 if b.get("side", "left") == "left" else 1
+    head, _ = _shape(b)
+    s = ch.scale_for_height(PRESENTER["height"] * STAGE_H, head, ch.HEAD_RATIO)
+    ax = _stage(fig, b, T, GROUND_Y)
+    ch.ground(ax, GROUND_Y)
+    _draw(ax, b, T, presenter_x(side), GROUND_Y, s)
+    _presenter_content(fig, T, b, side)
+
+
 def scene_character(fig, b, T):
     """One figure, an optional prop, framed wide, medium or close."""
     x, ground, s = _place(b)
@@ -307,6 +342,7 @@ def scene_chart(fig, b, T):
 
 
 VISUALS = {
+    "scene_presenter": scene_presenter,
     "scene_character": scene_character,
     "scene_caption": scene_caption,
     "scene_duo": scene_duo,

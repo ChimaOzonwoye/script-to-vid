@@ -59,6 +59,7 @@ def test_every_slide_visual_renders(tmp_path):
 def test_every_scene_visual_renders(tmp_path):
     from app import scenes
     beats = {
+        "scene_presenter": {"caption": "Words beside them", "side": "left"},
         "scene_character": {"expr": "happy", "pose": "cheer", "prop": "piggy",
                             "caption": "Cap"},
         "scene_caption": {"caption": "Big caption"},

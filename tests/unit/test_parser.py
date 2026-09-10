@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from app.script_parser import parse, ROTATION
+from app.script_parser import DEFAULT_VISUAL, parse
 
 EXAMPLE = (Path(__file__).resolve().parents[2] / "example-script.txt").read_text()
 
@@ -78,11 +78,23 @@ def test_unknown_prop_warns():
     assert any("yacht" in w for w in r["warnings"])
 
 
-def test_rotation_never_repeats_layout():
-    text = "\n\n".join(f"Paragraph number {i} with plain narration." for i in range(8))
-    visuals = [b["visual"] for b in parse(text)["beats"]]
-    assert all(a != b for a, b in zip(visuals, visuals[1:]))
-    assert set(visuals) <= set(ROTATION)
+def test_undirected_narration_is_the_presenter():
+    """Rotating four layouts and moving the figure every beat is what made a
+    run of beats read as a slideshow. One presenter, held in place."""
+    text = "\n\n".join(f"Paragraph number {i} with plain narration."
+                        for i in range(8))
+    beats = parse(text)["beats"]
+    assert {b["visual"] for b in beats} == {DEFAULT_VISUAL}
+    assert all(b.get("caption") for b in beats), "nothing beside the presenter"
+
+
+def test_the_presenter_holds_its_side_and_swaps_at_a_chapter():
+    """Swapping per beat would be the figure hopping about. Swapping at a
+    chapter reads as a cut to the other camera."""
+    text = ("One.\n\nTwo.\n\nThree.\n\n# Next chapter\n\n"
+            "Four.\n\nFive.\n\n# Third chapter\n\nSix.\n")
+    sides = [b.get("side") for b in parse(text)["beats"] if b.get("side")]
+    assert sides == ["left", "left", "left", "right", "right", "left"]
 
 
 def test_direction_without_narration_is_skipped():
@@ -120,3 +132,26 @@ def test_cast_rotates_by_chapter():
             "# Two\n\n> character: happy\n\nSecond.")
     beats = [b for b in parse(text)["beats"] if b["visual"] == "scene_character"]
     assert beats[0]["cast_i"] != beats[1]["cast_i"]
+
+
+def test_the_headline_never_ends_mid_phrase():
+    """A fixed word cut lands on "OUT BEFORE" or "FOR THE DAY AFTER" and the
+    reader waits out the beat for an object that never comes."""
+    from app.script_parser import _DANGLING, _auto_headline
+    scripts = [
+        "The trick is to take the money out before you can spend it.",
+        "Set up a standing order for the day after your salary lands.",
+        "This is a very long sentence with no punctuation at all that runs on",
+        "Compound interest, the thing everyone mentions, is the force here.",
+    ]
+    for s in scripts:
+        head = _auto_headline(s)
+        assert head, s
+        assert head.split()[-1].lower() not in _DANGLING, head
+
+
+def test_a_short_sentence_is_the_headline_whole():
+    """Cutting a sentence that already fits only loses meaning."""
+    from app.script_parser import _auto_headline
+    assert _auto_headline("Saving money is simple but not easy.") == \
+        "SAVING MONEY IS SIMPLE BUT NOT EASY"
