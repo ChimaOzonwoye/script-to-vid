@@ -22,6 +22,7 @@ import numpy as np
 
 from . import backgrounds as bg
 from . import characters as ch
+from . import stagecraft
 from .themes import mix
 
 STAGE_W, STAGE_H = 32.0, 18.0
@@ -102,11 +103,24 @@ def _place(b, height=None, side=None):
     return side * f["x"] * (STAGE_W / 2), ground, s
 
 
-def _stage(fig, b=None, T=None, ground=GROUND_Y):
+def focus_of(x):
+    """A stage x as a share of the frame width, for whatever is lighting it."""
+    return (x - X_MIN) / STAGE_W
+
+
+def _stage(fig, b=None, T=None, ground=GROUND_Y, focus=0.5):
+    """The axes every scene draws into, with the template already laid down.
+
+    The template's ground and light go on first and the room on top of them,
+    so a scene that names a background gets that room lit by the template
+    rather than a room drawn over a treatment it knows nothing about.
+    """
     ax = fig.add_axes([0, 0, 1, 1])
     ax.axis("off")
     ax.set_xlim(X_MIN, X_MIN + STAGE_W)
     ax.set_ylim(Y_MIN, Y_MIN + STAGE_H)
+    if T is not None:
+        stagecraft.draw(ax, T, focus, ground)
     if b is not None:
         bg.draw(ax, b.get("background"), T, ground)
     return ax
@@ -205,16 +219,17 @@ def scene_presenter(fig, b, T):
     side = -1 if b.get("side", "left") == "left" else 1
     head, _ = _shape(b)
     s = ch.scale_for_height(PRESENTER["height"] * STAGE_H, head, ch.HEAD_RATIO)
-    ax = _stage(fig, b, T, GROUND_Y)
+    px = presenter_x(side)
+    ax = _stage(fig, b, T, GROUND_Y, focus_of(px))
     ch.ground(ax, GROUND_Y)
-    _draw(ax, b, T, presenter_x(side), GROUND_Y, s)
+    _draw(ax, b, T, px, GROUND_Y, s)
     _presenter_content(fig, T, b, side)
 
 
 def scene_character(fig, b, T):
     """One figure, an optional prop, framed wide, medium or close."""
     x, ground, s = _place(b)
-    ax = _stage(fig, b, T, ground)
+    ax = _stage(fig, b, T, ground, focus_of(x))
     if ground >= Y_MIN:
         ch.ground(ax, ground)
     anchors = _draw(ax, b, T, x, ground, s)
@@ -227,7 +242,7 @@ def scene_character(fig, b, T):
 def scene_caption(fig, b, T):
     """One figure and a large caption, the caption carrying the beat."""
     x, ground, s = _place(b)
-    ax = _stage(fig, b, T, ground)
+    ax = _stage(fig, b, T, ground, focus_of(x))
     if ground >= Y_MIN:
         ch.ground(ax, ground)
     _draw(ax, b, T, x, ground, s)

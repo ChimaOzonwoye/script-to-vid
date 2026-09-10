@@ -18,7 +18,7 @@ from PIL import Image
 
 from . import engine, joiner, projects, voices
 from .script_parser import parse
-from .themes import THEMES, DEFAULT_THEME
+from .themes import THEMES, DEFAULT_THEME, page_palette
 
 HERE = Path(__file__).resolve().parent
 app = FastAPI(title="script to vid")
@@ -101,6 +101,7 @@ def home(request: Request):
     return templates.TemplateResponse(request, "index.html", {
         "projects": projects.list_projects(),
         "theme": THEMES[DEFAULT_THEME],
+        "page": page_palette(THEMES[DEFAULT_THEME]),
     })
 
 
@@ -132,6 +133,7 @@ def project_page(request: Request, name: str):
         "name": name,
         "script": projects.script(name),
         "theme": theme,
+        "page": page_palette(theme),
         "themes": THEMES,
         "voices": voices.listing(),
         "voice": cfg["voice"],
@@ -436,6 +438,7 @@ def merge_page(request: Request):
         "clips": _library(),
         "has_video": out.exists(),
         "theme": THEMES[DEFAULT_THEME],
+        "page": page_palette(THEMES[DEFAULT_THEME]),
     })
 
 
