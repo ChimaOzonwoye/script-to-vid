@@ -60,16 +60,26 @@
   --s4: 30px;
   --s5: 52px;
 
-  --radius: 18px;
-  --radius-sm: 10px;
+  --radius: 22px;
+  --radius-sm: 11px;
   --edge: color-mix(in srgb, var(--ink) 11%, transparent);
   --edge-soft: color-mix(in srgb, var(--ink) 7%, transparent);
+
+  /* A 1px outline round a panel is how a form is drawn. Software separates
+     with light instead: a lit top edge, a ring too faint to read as a line,
+     and shadow spread wide enough to be an environment rather than an edge. */
   --lift:
-    0 1px 1px color-mix(in srgb, var(--ink) 4%, transparent),
-    0 8px 24px -8px color-mix(in srgb, var(--ink) 16%, transparent);
+    inset 0 1px 0 color-mix(in srgb, #fff 78%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--ink) 4%, transparent),
+    0 2px 5px -2px color-mix(in srgb, var(--ink) 7%, transparent),
+    0 16px 34px -16px color-mix(in srgb, var(--ink) 15%, transparent),
+    0 42px 72px -44px color-mix(in srgb, var(--ink) 18%, transparent);
   --lift-lg:
-    0 2px 4px color-mix(in srgb, var(--ink) 5%, transparent),
-    0 18px 44px -14px color-mix(in srgb, var(--ink) 22%, transparent);
+    inset 0 1px 0 color-mix(in srgb, #fff 88%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--ink) 5%, transparent),
+    0 3px 8px -3px color-mix(in srgb, var(--ink) 9%, transparent),
+    0 22px 46px -18px color-mix(in srgb, var(--ink) 19%, transparent),
+    0 56px 92px -50px color-mix(in srgb, var(--ink) 20%, transparent);
 }
 
 * { box-sizing: border-box; }
@@ -97,12 +107,17 @@ body::before {
   content: "";
   position: fixed;
   inset: 0 0 auto 0;
-  height: 560px;
+  inset: 0;
+  height: auto;
   background:
-    radial-gradient(1200px 380px at 12% -110px,
-      color-mix(in srgb, var(--accent) 16%, transparent), transparent 68%),
-    radial-gradient(1000px 340px at 92% -130px,
-      color-mix(in srgb, var(--accent2) 15%, transparent), transparent 68%);
+    radial-gradient(1200px 420px at 12% -120px,
+      color-mix(in srgb, var(--accent) 15%, transparent), transparent 66%),
+    radial-gradient(1000px 380px at 92% -140px,
+      color-mix(in srgb, var(--accent2) 14%, transparent), transparent 66%),
+    linear-gradient(180deg,
+      color-mix(in srgb, #fff 30%, transparent) 0%,
+      transparent 34%,
+      color-mix(in srgb, var(--ink) 4%, transparent) 100%);
   pointer-events: none;
   z-index: 0;
 }
@@ -112,7 +127,191 @@ main {
   z-index: 1;
   max-width: 780px;
   margin: 0 auto;
-  padding: var(--s5) var(--s4) 140px;
+  padding: var(--s4) var(--s4) 140px;
+}
+
+/* ---------- the margins as a scene ---------- */
+/* Set dressing only: fixed, behind the page, never clickable, and gone on
+   any screen narrow enough that there are no margins to put it in. */
+.stage {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  display: none;
+}
+/* ground under the figures only, fading out before it reaches the column.
+   Run edge to edge it becomes the hardest line on the page, which is the
+   one thing everything else here is trying not to be. */
+.stage-ground {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 168px;
+  height: 2px;
+  --g: color-mix(in srgb, var(--ink) 20%, transparent);
+  background: linear-gradient(90deg,
+    transparent 0%, var(--g) 7%, var(--g) 20%, transparent 33%,
+    transparent 67%, var(--g) 80%, var(--g) 93%, transparent 100%);
+}
+/* Full strength line, held back by scale and position rather than by fading.
+   Washed out, a heavy outline turns grey and stops looking like the line art
+   the videos are drawn in, which is the whole point of them being here. */
+.stage-figure {
+  position: absolute;
+  bottom: 168px;
+  opacity: .66;
+}
+.stage-left { width: 124px; height: 165px; }
+.stage-right { width: 100px; height: 133px; }
+/* clear of the 780px column at the width this turns on, and off the very
+   edge of the screen so nobody reads them as cut off */
+.stage-left { left: max(28px, calc(50% - 560px)); }
+.stage-right { right: max(28px, calc(50% - 560px)); }
+
+.stage-lids circle {
+  transform-box: fill-box;
+  transform-origin: center;
+  transform: scaleY(0);
+  animation: blink 8s var(--blink-delay, 0s) infinite;
+}
+@keyframes blink {
+  0%, 93%, 100% { transform: scaleY(0); }
+  95%, 97%      { transform: scaleY(1); }
+}
+
+@media (min-width: 1240px) {
+  .stage { display: block; }
+}
+
+/* ---------- app bar ---------- */
+/* An app has a bar you can always reach, not a title block that scrolls
+   away. It carries the way back, which used to be a text link nobody would
+   read as a control. */
+.appbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: color-mix(in srgb, var(--bg) 74%, #fff);
+  backdrop-filter: blur(16px) saturate(1.3);
+  box-shadow:
+    0 1px 0 color-mix(in srgb, var(--ink) 4%, transparent),
+    0 10px 26px -18px color-mix(in srgb, var(--ink) 34%, transparent);
+}
+.appbar-in {
+  max-width: 780px;
+  margin: 0 auto;
+  padding: 9px var(--s4);
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+}
+.appbar .mark {
+  width: 26px;
+  height: 34px;
+  filter: none;
+}
+.appbar-name {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+  margin-left: auto;
+  margin-right: auto;
+}
+.appbar-name h1 {
+  margin: 0;
+  font-size: 19px;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.backbtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  flex: none;
+  padding: 6px 12px 6px 7px;
+  border-radius: 999px;
+  border: 1px solid var(--edge-soft);
+  background: color-mix(in srgb, #fff 70%, var(--bg));
+  color: var(--accent);
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: border-color .18s, background .18s;
+}
+.backbtn:hover {
+  text-decoration: none;
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+  background: #fff;
+}
+.backbtn svg { width: 18px; height: 18px; }
+.appbar-state {
+  flex: none;
+  padding: 4px 11px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--accent);
+  font-size: 12.5px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* ---------- what each step is currently set to ---------- */
+/* not .chip: the theme swatches already use that for their colour dots */
+.stepval {
+  margin-left: auto;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ink) 6%, transparent);
+  color: var(--dim);
+  font-family: var(--ui);
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 45%;
+}
+.stepval:empty { display: none; }
+
+/* ---------- the primary action follows you down the page ---------- */
+.actionbar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 20;
+  background: color-mix(in srgb, var(--bg) 78%, #fff);
+  backdrop-filter: blur(16px) saturate(1.3);
+  box-shadow:
+    0 -1px 0 color-mix(in srgb, var(--ink) 4%, transparent),
+    0 -12px 30px -18px color-mix(in srgb, var(--ink) 34%, transparent);
+}
+.actionbar-in {
+  max-width: 780px;
+  margin: 0 auto;
+  padding: 11px var(--s4);
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+}
+.actionbar-info {
+  color: var(--dim);
+  font-size: 14px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+#generate-sticky {
+  margin-left: auto;
+  flex: none;
+  padding: 11px 26px;
 }
 
 /* ---------- type ---------- */
@@ -206,28 +405,21 @@ a:hover { color: var(--ink); }
 
 section.step {
   position: relative;
-  margin-top: var(--s3);
+  margin-top: var(--s4);
   padding: var(--s4);
-  background: color-mix(in srgb, #fff 90%, var(--bg));
-  border: 1px solid var(--edge-soft);
+  /* lighter at the top, as if lit from above, so the fill has a direction
+     instead of being a flat rectangle of paper */
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, #fff 96%, var(--bg)),
+    color-mix(in srgb, #fff 85%, var(--bg)));
+  border: 0;
   border-radius: var(--radius);
   box-shadow: var(--lift);
-  transition: box-shadow .25s, border-color .25s;
+  transition: box-shadow .3s;
 }
 section.step:hover { box-shadow: var(--lift-lg); }
 
-/* a hairline of the accent along the top edge, the only decoration */
-section.step::before {
-  content: "";
-  position: absolute;
-  left: var(--s4);
-  right: var(--s4);
-  top: -1px;
-  height: 2px;
-  border-radius: 2px;
-  background: linear-gradient(90deg, var(--accent), var(--accent2));
-  opacity: .5;
-}
 
 .stepnum {
   display: inline-flex;
@@ -254,9 +446,12 @@ textarea {
   min-height: 330px;
   margin-top: var(--s3);
   padding: var(--s3);
-  border: 1px solid var(--edge);
+  border: 0;
   border-radius: var(--radius-sm);
-  background: color-mix(in srgb, var(--bg) 62%, #fff);
+  background: color-mix(in srgb, var(--bg) 58%, #fff);
+  box-shadow:
+    inset 0 1px 2px color-mix(in srgb, var(--ink) 7%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--ink) 5%, transparent);
   color: var(--ink);
   font-family: var(--mono);
   font-size: 14px;
@@ -282,7 +477,9 @@ textarea:focus, input:focus, select:focus {
   outline: none;
   background: #fff;
   border-color: var(--accent);
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 16%, transparent);
+  box-shadow:
+    0 0 0 1px var(--accent),
+    0 0 0 4px color-mix(in srgb, var(--accent) 16%, transparent);
 }
 
 button, .button {
@@ -462,6 +659,55 @@ ul.projects a { font-weight: 600; text-decoration: none; font-size: 16.5px; }
 
 .warnlist { margin: 6px 0 0; padding-left: 20px; }
 
+.fmt { margin-top: var(--s2); }
+.fmt summary {
+  cursor: pointer;
+  color: var(--dim);
+  font-size: 13.5px;
+  padding: 4px 0;
+}
+.fmt summary:hover { color: var(--ink); }
+.fmt .hint { margin-top: 4px; }
+
+/* ---------- skipped line review ---------- */
+.review {
+  margin-top: var(--s3);
+  padding: 14px 16px;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--accent) 5%, #fff);
+  border: 1px solid color-mix(in srgb, var(--accent) 16%, transparent);
+  font-size: 14px;
+}
+.review-head { margin: 0; color: color-mix(in srgb, var(--ink) 86%, var(--accent)); }
+.review-head + .review-list { margin-top: 9px; }
+.review-list { list-style: none; margin: 0; padding: 0; }
+.review-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s2);
+  padding: 6px 0;
+  border-top: 1px solid var(--edge-soft);
+}
+.review-list li:first-child { border-top: 0; }
+/* the line as the user typed it, so they can recognise it in the script */
+.review-text {
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--dim);
+  overflow-wrap: anywhere;
+}
+.review-list .button { flex: none; }
+#review-notes { margin-top: 4px; }
+#review-notes summary {
+  cursor: pointer;
+  padding: 6px 0;
+  color: var(--dim);
+  font-size: 13.5px;
+}
+#review-notes summary:hover { color: var(--ink); }
+#review-kept { margin-top: var(--s2); padding-top: 4px; }
+
 /* ---------- logo and music ---------- */
 
 #logo-preview {
@@ -482,8 +728,29 @@ ul.projects a { font-weight: 600; text-decoration: none; font-size: 16.5px; }
   transition: border-color .18s;
 }
 .tracks li:hover { border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
-.tracks .len { color: var(--dim); font-size: 13px; margin-left: auto; }
-.tracks audio { height: 30px; max-width: 185px; }
+.tracks .tname { min-width: 0; overflow: hidden; text-overflow: ellipsis;
+                 white-space: nowrap; }
+.tracks .len { color: var(--dim); font-size: 13px; margin-left: auto; flex: none; }
+.tracks .use-track { flex: none; }
+
+/* one shared player and a button per row. A full audio control on every
+   track made the library taller than the rest of the page put together. */
+.playbtn {
+  flex: none;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+  background: color-mix(in srgb, var(--accent) 9%, #fff);
+  color: var(--accent);
+  cursor: pointer;
+}
+.playbtn:hover { background: color-mix(in srgb, var(--accent) 17%, #fff); }
+.playbtn svg { width: 16px; height: 16px; }
 
 hr.sub { border: 0; border-top: 1px solid var(--edge-soft); margin: var(--s4) 0; }
 
@@ -534,7 +801,6 @@ video {
 @media (max-width: 640px) {
   main { padding: var(--s4) var(--s3) 100px; }
   section.step { padding: var(--s3); }
-  section.step::before { left: var(--s3); right: var(--s3); }
   .masthead { padding-bottom: var(--s4); }
   .mark { width: 48px; height: 62px; }
   form.row { flex-wrap: wrap; }

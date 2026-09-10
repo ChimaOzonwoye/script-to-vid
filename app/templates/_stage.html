@@ -1,0 +1,59 @@
+{# The margins as one of the tool's own scenes.
+
+   The page is a 780px column, so on a wide screen it floats in empty space
+   and reads as a document. Standing two of the cast in that space, drawn in
+   the same line art the videos use, makes the page look like the thing it
+   makes. It is set dressing: fixed, behind everything, and it cannot be
+   clicked. Below the width where the gutters exist it is not rendered at all.
+
+   The only movement is a blink, on transform alone so the compositor
+   handles it and it stays free even while a render has every core busy.
+   Anything travelling across the margin would pull the eye off the script. #}
+<div class="stage" aria-hidden="true">
+  <div class="stage-ground"></div>
+  {# they look inward, at the page, so the eye is led to the content rather
+     than out into the margin. Different sizes read as depth on one ground. #}
+  {% for side, head, shirt, delay, look in [
+       ('left',  'round',  'var(--accent)',  '0s',   1.7),
+       ('right', 'square', 'var(--accent2)', '3.4s', -1.7)] %}
+  <svg class="stage-figure stage-{{ side }}" viewBox="0 0 60 80"
+       style="--blink-delay: {{ delay }}">
+    <g fill="none" stroke="var(--ink)" stroke-width="3"
+       stroke-linecap="round" stroke-linejoin="round">
+      <path d="M25 62 L23 74 M35 62 L37 74" />
+      <path d="M19.5 72.5 H27 M33 72.5 H40.5" />
+      {% if side == 'left' %}
+      <path d="M19 45 L11 54 M41 45 L47 40" />
+      {% else %}
+      <path d="M19 45 L13 53 M41 45 L49 53" />
+      {% endif %}
+      <path d="M30 34 V40" stroke-width="2.5" />
+      <rect x="18" y="39" width="24" height="23" rx="5" fill="{{ shirt }}" />
+      {% if side == 'left' %}
+      <circle cx="11" cy="54" r="3.4" fill="var(--skin)" stroke-width="2.4" />
+      <circle cx="47" cy="40" r="3.4" fill="var(--skin)" stroke-width="2.4" />
+      {% else %}
+      <circle cx="13" cy="53" r="3.4" fill="var(--skin)" stroke-width="2.4" />
+      <circle cx="49" cy="53" r="3.4" fill="var(--skin)" stroke-width="2.4" />
+      {% endif %}
+      {% if head == 'round' %}
+      <circle cx="30" cy="19" r="17" fill="var(--skin)" />
+      {% else %}
+      <rect x="13" y="3" width="34" height="32" rx="9" fill="var(--skin)" />
+      {% endif %}
+      <circle cx="23" cy="18" r="5" fill="#ffffff" stroke-width="2.2" />
+      <circle cx="37" cy="18" r="5" fill="#ffffff" stroke-width="2.2" />
+      <path d="M18.5 10.2 Q23 8.4 27.5 10.2 M32.5 10.2 Q37 8.4 41.5 10.2"
+            stroke-width="2.4" />
+      <path d="M24 26.5 Q30 31.5 36 26.5" stroke-width="2.6" />
+    </g>
+    <circle cx="{{ 23 + look }}" cy="18.6" r="2.4" fill="var(--ink)" />
+    <circle cx="{{ 37 + look }}" cy="18.6" r="2.4" fill="var(--ink)" />
+    {# the lids sit shut and open, so a blink costs one transform #}
+    <g class="stage-lids">
+      <circle cx="23" cy="18" r="6.1" fill="var(--skin)" />
+      <circle cx="37" cy="18" r="6.1" fill="var(--skin)" />
+    </g>
+  </svg>
+  {% endfor %}
+</div>

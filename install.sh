@@ -6,13 +6,17 @@
 # Run from inside a copy of the repository it installs that copy in place.
 # Run on its own it downloads the repository first.
 #
+# Set STV_BRANCH to install a branch other than main, which is how a change
+# gets tried on a real machine before it is merged.
+#
 # Nothing here reads from stdin, because stdin is this script when it arrives
 # through a pipe and any prompt would swallow the rest of the file.
 
 set -u
 
 REPO="https://github.com/ChimaOzonwoye/script-to-vid"
-TARBALL="$REPO/archive/refs/heads/main.tar.gz"
+BRANCH="${STV_BRANCH:-main}"
+TARBALL="$REPO/archive/refs/heads/$BRANCH.tar.gz"
 DEST="${STV_DIR:-$HOME/script-to-vid}"
 
 say()  { printf '%s\n' "$1"; }
@@ -39,22 +43,31 @@ if [ -f "requirements.txt" ] && [ -d "app" ]; then
   DEST="$(pwd)"
   say "Installing into this folder."
 else
-  if [ -d "$DEST/.git" ] && command -v git >/dev/null 2>&1; then
-    say "Updating the copy already in $DEST."
-    git -C "$DEST" pull --quiet --ff-only || say "  (kept the copy you have)"
-  elif command -v git >/dev/null 2>&1; then
-    say "Downloading into $DEST."
-    rm -rf "$DEST"
-    git clone --quiet --depth 1 "$REPO" "$DEST" ||
+  say "Downloading into $DEST."
+  # Fetch into a staging folder first. What is already installed is not
+  # touched until a complete new copy is on disk, so a download that fails
+  # half way leaves the working install exactly as it was.
+  STAGE="$(mktemp -d)"
+  if command -v git >/dev/null 2>&1; then
+    git clone --quiet --depth 1 --branch "$BRANCH" "$REPO" "$STAGE/code" ||
       fail "The download failed. Check your internet connection and run the
 command again."
   else
-    say "Downloading into $DEST."
-    rm -rf "$DEST"; mkdir -p "$DEST"
-    curl -fsSL "$TARBALL" | tar -xz -C "$DEST" --strip-components=1 ||
+    mkdir -p "$STAGE/code"
+    curl -fsSL "$TARBALL" | tar -xz -C "$STAGE/code" --strip-components=1 ||
       fail "The download failed. Check your internet connection and run the
 command again."
   fi
+  # The videos live in projects/ inside the install folder, so replacing the
+  # code must not take them with it. This used to delete the lot.
+  [ -d "$DEST/projects" ] && mv "$DEST/projects" "$STAGE/projects"
+  rm -rf "$DEST"
+  mv "$STAGE/code" "$DEST"
+  if [ -d "$STAGE/projects" ]; then
+    mv "$STAGE/projects" "$DEST/projects"
+    say "Kept the videos you had already made."
+  fi
+  rm -rf "$STAGE"
 fi
 cd "$DEST" || fail "Could not open $DEST."
 

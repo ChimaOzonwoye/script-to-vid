@@ -6,6 +6,7 @@ from PIL import Image
 
 from app import projects
 from app.main import app
+from app.script_parser import parse
 
 
 @pytest.fixture
@@ -196,3 +197,58 @@ def test_duplicate_route(client, project):
     assert r.status_code == 303
     import shutil
     shutil.rmtree(projects.path_of(project + "-copy"), ignore_errors=True)
+
+
+# ----------------------------------------------------------------------
+# the review panel
+# ----------------------------------------------------------------------
+NOTEY = ('[Scene 1 - a desk]\n0:00 - 0:15\n// re-record\n'
+         'Saving money is simple but not easy.\n')
+
+
+def test_the_analysis_reports_what_will_not_be_spoken(project):
+    client = TestClient(app)
+    a = client.post(f"/p/{project}/script", json={"script": NOTEY}).json()
+    assert [s["text"] for s in a["skipped"]] == \
+        ["[Scene 1 - a desk]", "0:00 - 0:15", "// re-record"]
+    assert [s["kind"] for s in a["skipped"]] == ["note", "marker", "note"]
+    assert a["kept"] == []
+
+
+def test_putting_a_line_back_survives_a_reload(project):
+    """The choice lives with the project, not in the page, or it is lost the
+    moment the user closes the tab."""
+    client = TestClient(app)
+    client.post(f"/p/{project}/script", json={"script": NOTEY})
+    a = client.post(f"/p/{project}/keep",
+                    json={"text": "0:00 - 0:15", "keep": True}).json()
+    assert [k["text"] for k in a["kept"]] == ["0:00 - 0:15"]
+    assert "0:00 - 0:15" not in [s["text"] for s in a["skipped"]]
+
+    # a fresh analysis, as a reload would do
+    b = client.post(f"/p/{project}/script", json={"script": NOTEY}).json()
+    assert [k["text"] for k in b["kept"]] == ["0:00 - 0:15"]
+
+    c = client.post(f"/p/{project}/keep",
+                    json={"text": "0:00 - 0:15", "keep": False}).json()
+    assert c["kept"] == []
+    assert "0:00 - 0:15" in [s["text"] for s in c["skipped"]]
+
+
+def test_a_line_put_back_reaches_the_render(project):
+    client = TestClient(app)
+    client.post(f"/p/{project}/script", json={"script": NOTEY})
+    client.post(f"/p/{project}/keep", json={"text": "0:00 - 0:15", "keep": True})
+    cfg = projects.settings(project)
+    beats = parse(projects.script(project), keep=cfg["keep"])["beats"]
+    assert any("0:00" in b["say"] for b in beats)
+
+
+def test_putting_back_a_line_that_is_not_there_is_harmless(project):
+    client = TestClient(app)
+    client.post(f"/p/{project}/script", json={"script": NOTEY})
+    a = client.post(f"/p/{project}/keep",
+                    json={"text": "nothing like this in the script",
+                          "keep": True}).json()
+    assert a["kept"] == []
+    assert client.post(f"/p/{project}/keep", json={"text": "  "}).status_code == 400

@@ -5,17 +5,47 @@ from app.script_parser import parse, ROTATION
 EXAMPLE = (Path(__file__).resolve().parents[2] / "example-script.txt").read_text()
 
 
-def test_example_script():
-    """The bundled example is what a new project opens with, so it has to
-    parse cleanly and use a spread of directions."""
+def test_the_example_script_has_no_markup_in_it():
+    """It is the first thing a new user sees, and the interface used to imply
+    markup was required. It is not, so the example does not use any."""
+    lines = [ln.strip() for ln in EXAMPLE.splitlines() if ln.strip()]
+    assert lines, "the example is empty"
+    assert not any(ln.startswith(("#", ">")) for ln in lines), \
+        "the example teaches syntax before saying it is optional"
+
     r = parse(EXAMPLE)
-    assert r["warnings"] == []
-    visuals = [b["visual"] for b in r["beats"]]
-    assert visuals[0] == "chapter"
-    assert r["beats"][0]["num"] == "01"
-    assert {"scene_character", "scene_bubbles", "scene_split"} <= set(visuals)
+    assert r["warnings"] == [] and r["skipped"] == []
+    assert len(r["beats"]) >= 4, "too short to show what the tool does"
     assert all(b.get("caption") or b.get("headline") for b in r["beats"])
     assert r["words"] > 0
+
+
+def test_a_fully_marked_up_script_still_works():
+    """The example no longer covers the directions, so this does."""
+    r = parse("""# How to boil an egg
+
+> character: happy, cheer
+> caption: Cover them by an inch
+
+Start with eggs straight from the fridge.
+
+> bubbles: soft?, medium?, hard?
+
+Six minutes gives you a runny yolk.
+
+> split: Straight from the pan | Into cold water
+
+Lift them out into cold water when the time is up.
+
+> chart: growth
+
+The difference adds up over a lot of breakfasts.
+""")
+    assert r["warnings"] == []
+    visuals = [b["visual"] for b in r["beats"]]
+    assert visuals[0] == "chapter" and r["beats"][0]["num"] == "01"
+    assert {"scene_character", "scene_bubbles", "scene_split",
+            "scene_chart"} <= set(visuals)
 
 
 def test_character_direction_fields():

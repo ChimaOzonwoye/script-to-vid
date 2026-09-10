@@ -17,7 +17,10 @@ ROOT = Path(__file__).resolve().parent.parent
 PROJECTS_DIR = ROOT / "projects"
 EXAMPLE_SCRIPT = ROOT / "example-script.txt"
 
-DEFAULTS = {"theme": DEFAULT_THEME, "voice": DEFAULT_VOICE, "rate": DEFAULT_RATE}
+# "keep" holds the exact text of lines the user put back from the review
+# panel, so the choice survives a reload
+DEFAULTS = {"theme": DEFAULT_THEME, "voice": DEFAULT_VOICE,
+            "rate": DEFAULT_RATE, "keep": []}
 
 
 def slugify(name):
@@ -78,6 +81,8 @@ def settings(name):
         return dict(DEFAULTS)
     cfg["voice"] = valid_voice(cfg.get("voice"))
     cfg["rate"] = valid_rate(cfg.get("rate"))
+    kept = cfg.get("keep")
+    cfg["keep"] = [k for k in kept if isinstance(k, str)] if isinstance(kept, list) else []
     return cfg
 
 

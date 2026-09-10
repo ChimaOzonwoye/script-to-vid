@@ -62,8 +62,8 @@ def _mmss(sec):
 
 
 def _analysis(name, text):
-    r = parse(text)
     cfg = projects.settings(name)
+    r = parse(text, keep=cfg["keep"])
     est = engine.estimate_seconds(r["beats"], cfg["rate"])
     theme = THEMES.get(cfg["theme"], THEMES[DEFAULT_THEME])
     p = engine.plan(projects.path_of(name), r["beats"], theme,
@@ -76,6 +76,8 @@ def _analysis(name, text):
         "estimate": f"{r['words']} words, about {m} min {s} sec",
         "seconds": est,
         "warnings": r["warnings"],
+        "skipped": r["skipped"],
+        "kept": r["kept"],
         "beats": len(r["beats"]),
         "voices_cached": p["voices_cached"],
         "segments_cached": p["segments_cached"],
@@ -159,6 +161,22 @@ async def save_script(name: str, request: Request):
     text = body.get("script", "")
     projects.save_script(name, text)
     return _analysis(name, text)
+
+
+@app.post("/p/{name}/keep")
+async def set_keep(name: str, request: Request):
+    """Put a skipped line back into the narration, or skip it again."""
+    if not _valid(name):
+        return fail("That project no longer exists.", 404)
+    body = await request.json()
+    line = (body.get("text") or "").strip()
+    if not line:
+        return fail("There is no line to put back.")
+    keep = [k for k in projects.settings(name)["keep"] if k != line]
+    if body.get("keep"):
+        keep.append(line)
+    projects.save_settings(name, {"keep": keep})
+    return _analysis(name, projects.script(name))
 
 
 @app.post("/p/{name}/voice")
@@ -337,10 +355,10 @@ async def generate(name: str, request: Request):
     body = await request.json()
     text = body.get("script", "")
     projects.save_script(name, text)
-    r = parse(text)
+    cfg = projects.settings(name)
+    r = parse(text, keep=cfg["keep"])
     if not r["beats"]:
         return fail("The script is empty. Write some narration first.")
-    cfg = projects.settings(name)
     theme = THEMES.get(cfg["theme"], THEMES[DEFAULT_THEME])
     RENDERS[name] = {"state": "running", "message": "Starting..."}
     threading.Thread(target=_render_worker,
