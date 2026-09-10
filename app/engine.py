@@ -466,6 +466,20 @@ async def _speak_all(lines, paths, voice, rate, on_line=None):
     await asyncio.gather(*(one(t, p) for t, p in zip(lines, paths)))
 
 
+def _drop_unusable(todo):
+    """Remove any voice file that came back empty and say how many.
+
+    The service can answer without failing and still return nothing, which
+    leaves a zero byte file in a cache keyed on the line. Left there it is
+    never regenerated, so the render fails on that line for ever. Nothing
+    downstream can recover from it, so it must not survive this function.
+    """
+    bad = [p for _, p in todo if not p.exists() or p.stat().st_size == 0]
+    for p in bad:
+        p.unlink(missing_ok=True)
+    return len(bad)
+
+
 def speak_missing(lines, paths, voice, rate, on_line=None):
     todo = [(t, p) for t, p in zip(lines, paths) if not p.exists()]
     if not todo:
@@ -475,27 +489,43 @@ def speak_missing(lines, paths, voice, rate, on_line=None):
             _fake_voice(t, p)
             if on_line:
                 on_line()
-        return
-    try:
-        asyncio.run(_speak_all([t for t, _ in todo], [p for _, p in todo],
-                               voice, rate, on_line))
-    except Exception as e:
-        # partial files must not poison the cache
-        for _, p in todo:
-            if p.exists() and p.stat().st_size == 0:
-                p.unlink()
+    else:
+        try:
+            asyncio.run(_speak_all([t for t, _ in todo], [p for _, p in todo],
+                                   voice, rate, on_line))
+        except Exception as e:
+            _drop_unusable(todo)
+            raise RenderError(
+                "Could not reach the voice service. Check your internet "
+                "connection and press Generate again; finished lines are kept "
+                f"and will not be redone. ({type(e).__name__})") from e
+    n = _drop_unusable(todo)
+    if n:
         raise RenderError(
-            "Could not reach the voice service. Check your internet "
-            "connection and press Generate again; finished lines are kept "
-            f"and will not be redone. ({type(e).__name__})") from e
+            f"The voice service returned nothing for {n} line"
+            f"{'' if n == 1 else 's'}. Press Generate again to retry just "
+            "those; every line that did come back is kept.")
 
 
 def duration(path):
-    out = subprocess.run(
+    """Length of an audio or video file in seconds.
+
+    Raises RenderError rather than letting ffprobe's CalledProcessError out.
+    An empty or truncated file reaching here used to surface as a traceback
+    and, worse, stayed in the cache, so every retry failed the same way.
+    """
+    r = subprocess.run(
         ["ffprobe", "-v", "error", "-show_entries", "format=duration",
-         "-of", "json", str(path)],
-        capture_output=True, text=True, check=True).stdout
-    return float(json.loads(out)["format"]["duration"])
+         "-of", "json", str(path)], capture_output=True, text=True)
+    try:
+        if r.returncode != 0:
+            raise ValueError(r.stderr.strip()[:200] or "ffprobe failed")
+        return float(json.loads(r.stdout)["format"]["duration"])
+    except (ValueError, KeyError, TypeError) as e:
+        raise RenderError(
+            f"The file {Path(path).name} is empty or damaged, so its length "
+            "could not be measured. Delete it and press Generate again, and "
+            f"it will be made afresh. ({e})") from e
 
 
 def _rate_fraction(rate):

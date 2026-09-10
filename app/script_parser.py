@@ -1,15 +1,26 @@
 """Parses the plain-text script format into beats the engine can render.
 
-The format, in full: blank lines separate paragraphs, `#` starts a chapter,
-`>` is a visual direction, everything else is narration. Directions apply
-to the next narration paragraph, however many blank lines sit between.
+No formatting is required. Paste the words you want spoken and every line
+is narration. On top of that: blank lines separate paragraphs, `#` starts a
+chapter, `>` is a visual direction, and directions apply to the next
+narration paragraph however many blank lines sit between.
 
-Parsing never raises. Anything it does not understand becomes a plain
-caption slide plus a warning the page shows above the Generate button.
+The rest of this module exists because real scripts are not written for this
+tool. People paste what they wrote elsewhere, or what a chatbot wrote for
+them, and that arrives full of stage directions, timecodes and `Narration:`
+labels. Reading those aloud makes an unusable video, so they are skipped,
+and every skipped line is handed back in `skipped` for the page to show with
+a control to put it back. Guessing harder is not an option: `Scene 3` on its
+own line is nearly always a note and occasionally a real line, and the text
+alone cannot tell you which.
+
+Parsing never raises. Anything it does not understand becomes narration.
 Beats carry only content, never source positions, so an edit higher up the
-script does not invalidate the cache of the beats below it.
+script does not invalidate the cache of the beats below it, and a line put
+back in the review panel changes only its own beat.
 """
 
+import re
 import textwrap
 
 from .backgrounds import BACKGROUNDS
@@ -36,6 +47,95 @@ MODIFIERS = ("caption", "prop", "sub", "scene")
 SLIDES = ("sweep", "title", "gauge", "callout", "timeline", "jars", "terms",
           "path", "growth", "quiet", "recap", "outro")
 SCENES = ("character", "duo", "bubbles", "split", "chart")
+
+
+# ----------------------------------------------------------------------
+# WHAT A LINE IS
+# A marker only counts when it is the whole line. "Step one. Spend every
+# dollar you earn." is narration, because the line carries content past the
+# marker. Two kinds of skip, because they are not equally certain:
+#   note    never wanted aloud, so the page collapses these
+#   marker  probably a note, occasionally real, so the page shows them
+# ----------------------------------------------------------------------
+NOTE, MARKER = "note", "marker"
+
+_COMMENT = re.compile(r"^//")
+_BRACKETED = re.compile(r"^\[.*\]$", re.S)
+_MARKER = re.compile(r"^(scene|script|part|chapter|section|act)"
+                     r"\s*#?\s*\d+\s*[.:)\-]?$", re.I)
+# escapes rather than the characters themselves, so the dash sweep stays clean
+_SPAN = r"(?:\s*(?:[-\u2013\u2014]|to)\s*\d{1,2}:\d{2}(?::\d{2})?)?"
+_TIMESTAMP = re.compile(r"^\(?\d{1,2}:\d{2}(?::\d{2})?" + _SPAN + r"\)?[.:]?$",
+                        re.I)
+
+# Labels a script carries down its left margin, and where each one's value
+# belongs. Audio, music and sound effect notes have nowhere to go: the tool
+# cannot act on "upbeat piano", so they are skipped and shown rather than
+# read out or silently dropped.
+_LABELS = {
+    "narration": "say", "voiceover": "say", "voice over": "say",
+    "title": "chapter",
+    "visual": "caption", "visuals": "caption", "on-screen": "caption",
+    "on screen": "caption", "onscreen": "caption", "text": "caption",
+    "b-roll": "caption", "b roll": "caption", "broll": "caption",
+    "audio": NOTE, "music": NOTE, "sfx": NOTE,
+}
+# short enough that "Here is the point: saving is hard" cannot match; the
+# lookup above is what actually decides
+_LABEL = re.compile(r"^([A-Za-z][A-Za-z \-]{0,11}):\s*(.*)$", re.S)
+
+_QUOTE_PAIRS = (('"', '"'), ("'", "'"), ("\u201c", "\u201d"),
+                ("\u2018", "\u2019"))
+
+
+def _unquote(s):
+    """Scripts often wrap spoken lines in quotes, and the voice reads them."""
+    for open_q, close_q in _QUOTE_PAIRS:
+        if len(s) > 2 and s.startswith(open_q) and s.endswith(close_q):
+            return s[1:-1].strip()
+    return s
+
+
+def classify(s):
+    """What one non-blank line is: (kind, payload).
+
+    kind is "direction", "chapter", "caption", "narration", or one of the
+    two skip kinds. Order matters: an explicit `>` or `#` always wins, so a
+    user who has learned the format never has it second-guessed.
+    """
+    if s.startswith(">"):
+        return "direction", s
+    if s.startswith("#"):
+        return "chapter", s.lstrip("#").strip()
+    if _COMMENT.match(s) or _BRACKETED.match(s):
+        return NOTE, s
+
+    m = _LABEL.match(s)
+    if m and m.group(1).strip().lower() in _LABELS:
+        where = _LABELS[m.group(1).strip().lower()]
+        value = _unquote(m.group(2).strip())
+        if where is NOTE or not value:
+            return NOTE, s
+        return where if where != "say" else "narration", value
+
+    if _MARKER.match(s) or _TIMESTAMP.match(s):
+        return MARKER, s
+    return "narration", _unquote(s)
+
+
+# enough headings to be a pattern rather than a short script that happens
+# to start with one. Two would call `# Title` over a single paragraph a
+# misunderstanding, and it is not one.
+_FLOOD_MIN = 3
+
+
+def _headings_flood(lines):
+    """More than half the lines being headings means the user was told to
+    add markdown and did it to everything. Left alone that renders a video
+    of nothing but chapter cards."""
+    body = [s for s in lines if s.strip()]
+    heads = [s for s in body if s.strip().startswith("#")]
+    return len(heads) >= _FLOOD_MIN and len(heads) * 2 > len(body)
 
 
 # a caption cut to a word limit often lands on a word that cannot end a
@@ -185,9 +285,16 @@ def _rotated_beat(say, cast_i, rot_i, prev_visual):
     return b, rot_i + 1
 
 
-def parse(text):
-    """Returns {"beats": [...], "warnings": [...], "words": int}."""
-    beats, warnings = [], []
+def parse(text, keep=()):
+    """Returns {"beats", "warnings", "words", "skipped"}.
+
+    `keep` holds the exact text of lines the user has put back from the
+    review panel. It is matched on the text rather than on a line number so
+    that editing the script above a restored line cannot quietly restore a
+    different one instead.
+    """
+    beats, warnings, skipped = [], [], []
+    keep = {k.strip() for k in (keep or ()) if k and k.strip()}
     pending, para = [], []
     chapter_n = 0
     rot_i = 0
@@ -252,35 +359,76 @@ def parse(text):
         b, rot_i = _rotated_beat(say, cast_i, rot_i, prev_visual())
         add(b)
 
-    for line_no, raw in enumerate((text or "").splitlines(), 1):
+    lines = (text or "").splitlines()
+    flood = _headings_flood(lines)
+    if flood:
+        warnings.append(
+            "Nearly every line here starts with a #, so they were read as "
+            "narration rather than chapter cards. Otherwise the video would "
+            "be nothing but title cards. Take the # off any line you did "
+            "want spoken as narration anyway, and leave it on real chapters.")
+
+    for line_no, raw in enumerate(lines, 1):
         s = raw.strip()
         if not s:
             flush_para()
-        elif s.startswith("#"):
+            continue
+        try:
+            kind, payload = classify(s)
+        except Exception:
+            # a script is user input and the page must never see a traceback;
+            # anything this cannot read is simply spoken
+            kind, payload = "narration", s
+        if kind in (NOTE, MARKER):
+            if s in keep:
+                kind, payload = "narration", _unquote(s)
+            else:
+                skipped.append({"line": line_no, "text": s, "kind": kind})
+                continue
+        if flood and kind == "chapter":
+            # each heading was its own line and is its own thought, so it
+            # gets its own beat rather than being run into its neighbours
+            # as one breathless paragraph
+            if payload:
+                flush_para()
+                para.append(payload)
+                flush_para()
+            continue
+
+        if kind == "direction":
             flush_para()
-            chapter_n += 1
-            title = s.lstrip("#").strip()
-            beats.append({
-                "visual": "chapter", "num": f"{chapter_n:02d}", "say": title,
-                "headline": "\n".join(textwrap.wrap(title.upper(), 22)[:3]),
-            })
-        elif s.startswith(">"):
-            flush_para()
-            name, payload = _split_direction(s)
+            name, dpayload = _split_direction(payload)
             if name:
-                pending.append((name, payload, line_no))
+                pending.append((name, dpayload, line_no))
             else:
                 warnings.append(f"Line {line_no}: empty direction, ignored.")
-        else:
-            para.append(s)
+        elif kind == "chapter":
+            if not payload:
+                continue        # a bare # names no chapter and says nothing
+            flush_para()
+            chapter_n += 1
+            beats.append({
+                "visual": "chapter", "num": f"{chapter_n:02d}", "say": payload,
+                "headline": "\n".join(textwrap.wrap(payload.upper(), 22)[:3]),
+            })
+        elif kind == "caption":
+            pending.append(("caption", payload, line_no))
+        elif payload:
+            para.append(payload)
     flush_para()
 
     for name, _, line_no in pending:
         warnings.append(f"Line {line_no}: the '{name}' direction has no "
                         "narration after it, so it was skipped.")
 
+    # A beat with nothing to say still goes to the voice service, which
+    # returns an empty file, which ffprobe then cannot measure. That is the
+    # whole of the reported crash on scripts full of # headings.
+    beats = [b for b in beats if b.get("say", "").strip()]
+
     if not beats:
         warnings.append("The script is empty. Write some narration first.")
 
     words = sum(len(b["say"].split()) for b in beats)
-    return {"beats": beats, "warnings": warnings, "words": words}
+    return {"beats": beats, "warnings": warnings, "words": words,
+            "skipped": skipped}
