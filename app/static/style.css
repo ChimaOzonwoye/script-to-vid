@@ -115,6 +115,53 @@ main {
   padding: var(--s4) var(--s4) 140px;
 }
 
+/* ---------- the margins as a scene ---------- */
+/* Set dressing only: fixed, behind the page, never clickable, and gone on
+   any screen narrow enough that there are no margins to put it in. */
+.stage {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  display: none;
+}
+.stage-ground {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 168px;
+  border-top: 2px solid color-mix(in srgb, var(--ink) 22%, transparent);
+}
+/* Full strength line, held back by scale and position rather than by fading.
+   Washed out, a heavy outline turns grey and stops looking like the line art
+   the videos are drawn in, which is the whole point of them being here. */
+.stage-figure {
+  position: absolute;
+  bottom: 168px;
+  opacity: .66;
+}
+.stage-left { width: 124px; height: 165px; }
+.stage-right { width: 100px; height: 133px; }
+/* clear of the 780px column at the width this turns on, and off the very
+   edge of the screen so nobody reads them as cut off */
+.stage-left { left: max(28px, calc(50% - 560px)); }
+.stage-right { right: max(28px, calc(50% - 560px)); }
+
+.stage-lids circle {
+  transform-box: fill-box;
+  transform-origin: center;
+  transform: scaleY(0);
+  animation: blink 8s var(--blink-delay, 0s) infinite;
+}
+@keyframes blink {
+  0%, 93%, 100% { transform: scaleY(0); }
+  95%, 97%      { transform: scaleY(1); }
+}
+
+@media (min-width: 1240px) {
+  .stage { display: block; }
+}
+
 /* ---------- app bar ---------- */
 /* An app has a bar you can always reach, not a title block that scrolls
    away. It carries the way back, which used to be a text link nobody would

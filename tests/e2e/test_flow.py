@@ -180,3 +180,37 @@ def test_the_shell_carries_the_way_back_and_the_action(server):
             or page.url.rstrip("/") == server.rstrip("/")
         browser.close()
     shutil.rmtree(projects.path_of(name), ignore_errors=True)
+
+
+def test_the_margin_scene_stays_out_of_the_way(server):
+    """The margins are set dressing. It has to be impossible for them to
+    cover the column, catch a click, or appear on a screen with no margins
+    to put them in."""
+    with playwright.sync_playwright() as pw:
+        browser = pw.chromium.launch(
+            executable_path=os.environ.get("CHROMIUM_PATH") or None)
+        page = browser.new_page(viewport={"width": 1440, "height": 900})
+        page.goto(server)
+        page.wait_for_timeout(300)
+        assert page.locator(".stage").is_visible()
+        assert page.evaluate(
+            "getComputedStyle(document.querySelector('.stage')).pointerEvents"
+        ) == "none"
+
+        card = page.locator("section.step").first.bounding_box()
+        for side in (".stage-left", ".stage-right"):
+            box = page.locator(side).bounding_box()
+            assert box["x"] + box["width"] <= card["x"] + 1 \
+                or box["x"] >= card["x"] + card["width"] - 1, \
+                f"{side} runs under the column"
+
+        # no margins, no scene
+        page.set_viewport_size({"width": 1000, "height": 900})
+        page.wait_for_timeout(200)
+        assert page.locator(".stage").is_hidden()
+        page.set_viewport_size({"width": 390, "height": 844})
+        page.wait_for_timeout(200)
+        assert page.locator(".stage").is_hidden()
+        assert not page.evaluate(
+            "document.documentElement.scrollWidth > window.innerWidth + 1")
+        browser.close()
