@@ -42,15 +42,24 @@ def probe(path):
         return None
     audio = next((s for s in data.get("streams", [])
                   if s.get("codec_type") == "audio"), None)
-    num, _, den = (video.get("avg_frame_rate") or "0/1").partition("/")
-    try:
-        fps = round(float(num) / float(den or 1), 3)
-    except (ValueError, ZeroDivisionError):
-        fps = 0
+    def rate(field):
+        num, _, den = (video.get(field) or "0/1").partition("/")
+        try:
+            return round(float(num) / float(den or 1), 3)
+        except (ValueError, ZeroDivisionError):
+            return 0
+
+    # avg_frame_rate is frames divided by duration, so a joined file reads
+    # 29.931 while still being 30fps. r_frame_rate is the rate the stream
+    # declares, and that is what decides whether a copy is safe. Checking the
+    # average instead meant joining a joined video re-encoded it: minutes
+    # instead of seconds, for nothing.
+    fps, nominal = rate("avg_frame_rate"), rate("r_frame_rate")
     return {
         "width": video.get("width") or 0,
         "height": video.get("height") or 0,
         "fps": fps,
+        "nominal_fps": nominal,
         "vcodec": video.get("codec_name") or "",
         "acodec": (audio or {}).get("codec_name") or "",
         "sample_rate": int((audio or {}).get("sample_rate") or 0),
@@ -64,7 +73,7 @@ def ready_to_copy(info):
     return bool(info) and (
         info["width"] == PROFILE["width"]
         and info["height"] == PROFILE["height"]
-        and abs(info["fps"] - PROFILE["fps"]) < 0.01
+        and abs(info["nominal_fps"] - PROFILE["fps"]) < 0.01
         and info["vcodec"] == PROFILE["vcodec"]
         and info["has_audio"]
         and info["acodec"] == PROFILE["acodec"]

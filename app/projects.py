@@ -15,6 +15,7 @@ from .voices import DEFAULT_VOICE, DEFAULT_RATE, valid_voice, valid_rate
 
 ROOT = Path(__file__).resolve().parent.parent
 PROJECTS_DIR = ROOT / "projects"
+MERGES_DIR = ROOT / "merges"
 EXAMPLE_SCRIPT = ROOT / "example-script.txt"
 
 # "keep" holds the exact text of lines the user put back from the review

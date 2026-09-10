@@ -109,3 +109,25 @@ def test_the_profile_matches_what_the_engine_actually_makes(project, tmp_path):
     info = joiner.probe(r["video"])
     assert joiner.ready_to_copy(info), (
         f"a video straight from the engine does not match PROFILE: {info}")
+
+
+def test_joining_a_joined_video_does_not_re_encode_it(tmp_path):
+    """A joined file averages slightly under 30fps, because the average is
+    frames over duration, while still being a 30fps stream. Judged on that
+    average it looked foreign and got converted, so building a video up in
+    parts got slower with every part added.
+    """
+    # 3.98s is what a real beat comes out at, and whole seconds do not drift
+    a = make(tmp_path / "a.mp4", 3.98)
+    b = make(tmp_path / "b.mp4", 3.98)
+    c = make(tmp_path / "c.mp4", 3.98)
+    first = joiner.join([a, b], tmp_path / "ab.mp4", tmp_path / "w1")
+    assert first["converted"] == []
+
+    info = joiner.probe(first["video"])
+    assert info["fps"] != 30, "this test is no longer exercising the drift"
+    assert joiner.ready_to_copy(info), f"a joined video is not joinable: {info}"
+
+    second = joiner.join([first["video"], c], tmp_path / "abc.mp4", tmp_path / "w2")
+    assert second["converted"] == [], "the joined video was re-encoded"
+    assert abs(second["seconds"] - 11.94) < 0.8
