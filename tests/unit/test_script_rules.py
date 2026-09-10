@@ -163,3 +163,47 @@ def test_the_parser_never_raises(text):
     """A script is user input, and the page must never show a traceback."""
     r = parse(text)
     assert isinstance(r["beats"], list) and isinstance(r["skipped"], list)
+
+
+# ----------------------------------------------------------------------
+# what the interface claims
+# ----------------------------------------------------------------------
+def _read(*parts):
+    from pathlib import Path
+    return (Path(__file__).resolve().parents[2].joinpath(*parts)).read_text()
+
+
+def test_the_script_step_leads_with_pasting_not_with_syntax():
+    """A user asked a chatbot how to use this and was told to add # headings,
+    because the page taught # and > before saying they were optional."""
+    page = _read("app", "templates", "project.html")
+    step = page.split('<h2><span class="stepnum">2</span>Script</h2>', 1)[1]
+    hint = step.split('<p class="hint">', 1)[1].split("</p>", 1)[0]
+    assert "Paste your script" in hint
+    assert "#" not in hint and "&gt;" not in hint, \
+        "the first thing said about the script box is still syntax"
+
+
+def test_the_direction_syntax_is_folded_away():
+    page = _read("app", "templates", "project.html")
+    assert '<details class="fmt">' in page
+    fmt = page.split('<details class="fmt">', 1)[1].split("</details>", 1)[0]
+    assert "None of this is required" in fmt
+    assert "&gt; character" in fmt, "the syntax is not in the panel"
+    assert "<details class=\"fmt\" open" not in page, "the panel starts open"
+
+
+def test_the_placeholder_shows_plain_narration():
+    page = _read("app", "templates", "project.html")
+    ph = page.split('placeholder="', 1)[1].split('"', 1)[0]
+    assert "#" not in ph and "&gt;" not in ph
+
+
+def test_the_readme_says_formatting_is_optional_before_teaching_it():
+    readme = _read("README.md")
+    section = readme.split("## The script format", 1)[1]
+    assert section.lstrip().startswith("**No special formatting is required.**")
+    # the syntax may only appear after the optional heading
+    optional = section.index("### Optional formatting")
+    assert "> character:" not in section[:optional]
+    assert "> character:" in section[optional:]

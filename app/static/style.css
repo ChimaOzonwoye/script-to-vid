@@ -462,6 +462,16 @@ ul.projects a { font-weight: 600; text-decoration: none; font-size: 16.5px; }
 
 .warnlist { margin: 6px 0 0; padding-left: 20px; }
 
+.fmt { margin-top: var(--s2); }
+.fmt summary {
+  cursor: pointer;
+  color: var(--dim);
+  font-size: 13.5px;
+  padding: 4px 0;
+}
+.fmt summary:hover { color: var(--ink); }
+.fmt .hint { margin-top: 4px; }
+
 /* ---------- skipped line review ---------- */
 .review {
   margin-top: var(--s3);

@@ -87,8 +87,27 @@ nothing else.
 
 ## The script format
 
-Blank lines separate beats. `#` starts a chapter. `>` is a visual direction.
-Everything else is narration.
+**No special formatting is required.** Paste your script, exactly the words
+you want spoken, and press Generate. Blank lines separate it into beats.
+
+```
+Boiling an egg sounds like the simplest thing in the world, and most people
+still get it slightly wrong.
+
+Start with eggs straight from the fridge, and a pan deep enough to cover them
+by about an inch of water.
+```
+
+Scripts written elsewhere usually carry things nobody wants read aloud:
+`[Scene 1 - man at a desk]`, a bare `0:00 - 0:15`, `Narration:` down the left
+margin. Those are left out, labels like `Narration:` and `Visual:` are used
+for what they describe, and every line that was left out is listed above the
+Generate button with a button to put it back. Nothing is dropped silently.
+
+### Optional formatting
+
+If you want more control, two characters do it. `#` starts a chapter card and
+`>` is a visual direction.
 
 ```
 # How to boil an egg
@@ -96,28 +115,23 @@ Everything else is narration.
 > character: happy, cheer
 > caption: Cover them by an inch
 
-Start with eggs straight from the fridge, and a pan deep enough to cover them
-by about an inch of water.
+Start with eggs straight from the fridge.
 
 > bubbles: soft?, medium?, hard?
-> caption: One pan, three results
 
-Six minutes gives you a runny yolk. Eight is soft but set. Ten and it is firm
-all the way through.
+Six minutes gives you a runny yolk.
 ```
 
 Directions include `character`, `duo`, `bubbles`, `split`, `chart`, `gauge`,
 `timeline`, `growth`, `jars`, `terms`, `callout`, `quiet`, `recap`, `title`,
 `sweep`, `outro`, and the modifiers `caption`, `sub`, `prop` and `scene`.
-Anything the parser does not recognise becomes a plain caption slide and a
-note above the Generate button, never an error.
+Anything the parser does not recognise becomes narration, never an error.
 
 `> scene: kitchen` puts a character in a room. The settings are `classroom`,
 `office`, `kitchen`, `living room`, `street` and `plain`, and `plain` is what
-you get if you never ask, so every script you have already written looks the
-same as it did.
+you get if you never ask.
 
-The full example is in `example-script.txt`.
+The example a new project opens with is in `example-script.txt`.
 
 ## Licence
 

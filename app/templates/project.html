@@ -38,13 +38,20 @@
 
   <section class="step">
     <h2><span class="stepnum">2</span>Script</h2>
-    <p class="hint">Blank lines separate beats. Start a line with # for a new
-    chapter. Start a line with &gt; for a visual direction, like
-    <code>&gt; character: happy, cheer</code> or
-    <code>&gt; caption: Words on screen</code>. Plain paragraphs become
-    narration.</p>
+    <p class="hint">Paste your script: exactly the words you want spoken,
+    and nothing else. Blank lines separate it into beats. Notes like
+    <code>[Scene 1]</code> or <code>0:00</code> are left out, and you can put
+    any of them back below.</p>
     <textarea id="script" spellcheck="false"
-              placeholder="# My first chapter&#10;&#10;&gt; character: happy, cheer&#10;&#10;Write what you want the voice to say here.">{{ script }}</textarea>
+              placeholder="Write or paste what you want the voice to say.&#10;&#10;A blank line starts the next beat.">{{ script }}</textarea>
+    <details class="fmt">
+      <summary>Formatting, if you want it</summary>
+      <p class="hint">None of this is required. Start a line with
+      <code>#</code> for a chapter card, or <code>&gt;</code> for a visual
+      direction, like <code>&gt; character: happy, cheer</code> or
+      <code>&gt; caption: Words on screen</code>. Everything else is
+      narration.</p>
+    </details>
     <p class="hint">
       <label class="button quiet small" for="scriptfile">Upload a .txt or .md file</label>
       <input type="file" id="scriptfile" accept=".txt,.md" hidden>
