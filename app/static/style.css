@@ -620,6 +620,33 @@ ul.projects a { font-weight: 600; text-decoration: none; font-size: 16.5px; }
   border-top: 1px solid var(--edge-soft);
 }
 
+/* ---------- look ---------- */
+
+.swatch .preview {
+  display: block; width: 100%; height: auto; border-radius: 10px;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ink) 8%, transparent);
+}
+.lookshot {
+  margin: var(--s3) 0 0; max-width: 420px;
+}
+.lookshot img {
+  display: block; width: 100%; height: auto; border-radius: 14px;
+  box-shadow: 0 6px 20px color-mix(in srgb, var(--ink) 12%, transparent);
+}
+.lookshot figcaption {
+  margin-top: 8px; font-size: 13.5px; color: var(--dim);
+}
+
+.lookrow {
+  display: flex; gap: 12px; align-items: flex-end;
+  margin-top: var(--s3); flex-wrap: wrap;
+}
+.lookrow label {
+  display: flex; flex-direction: column; gap: 6px;
+  font-size: 13.5px; color: var(--dim); flex: 1; min-width: 200px;
+}
+.lookrow select { width: 100%; }
+
 /* ---------- voice ---------- */
 
 .voicepick {

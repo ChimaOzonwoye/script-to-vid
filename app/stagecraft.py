@@ -201,3 +201,51 @@ def draw(ax, T, focus, ground):
     """Lay the template's ground and light under a scene."""
     GROUNDS.get(getattr(T, "ground", "plain"), plain)(ax, T, focus, ground)
     LIGHTS.get(getattr(T, "light", "flat"), flat)(ax, T, focus)
+
+
+# ----------------------------------------------------------------------
+# LETTERING
+
+
+def _slab_ink(T):
+    """Text that can be read on a slab of the warm accent."""
+    from .themes import _luminance
+    return "#14120d" if _luminance(T.a1) > 0.35 else "#ffffff"
+
+
+def plain_type(t, T):
+    """Bold caps and nothing else, which is what shipped first."""
+
+
+def halo(t, T):
+    """A thick ring of the ground colour around the letters. Not decoration:
+    a sunburst or a halftone field runs behind the words, and without this the
+    pattern reads through the counters of the type."""
+    import matplotlib.patheffects as pe
+    t.set_path_effects([pe.withStroke(linewidth=10, foreground=T.bg)])
+
+
+def drop(t, T):
+    """A hard offset shadow, no blur, the way flat illustration does depth."""
+    import matplotlib.patheffects as pe
+    t.set_path_effects([pe.withSimplePatchShadow(
+        offset=(5, -5), shadow_rgbFace=_step(T, 0.40), alpha=1.0, rho=1.0)])
+
+
+def slab(t, T):
+    """The words sitting in a block of the warm accent."""
+    t.set_color(_slab_ink(T))
+    t.set_bbox(dict(boxstyle="square,pad=0.34", facecolor=T.a1,
+                    edgecolor=T.ink, linewidth=3.0))
+
+
+LETTERING = {"plain": plain_type, "halo": halo, "drop": drop, "slab": slab}
+
+
+def letter(t, T):
+    """Give a placed text the template's type treatment.
+
+    Called after the text has been fitted, because a slab changes the measured
+    width and fitting against that would shrink the type to fit its own box.
+    """
+    LETTERING.get(getattr(T, "lettering", "plain"), plain_type)(t, T)

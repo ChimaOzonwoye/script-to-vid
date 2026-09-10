@@ -9,4 +9,6 @@ logo.png
 music.mp3
 # voice previews are made during install, one set per computer
 assets/voices/
+# template stills, drawn on first view and keyed on the template itself
+cache/
 merges/

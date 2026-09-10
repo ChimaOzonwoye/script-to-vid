@@ -39,6 +39,7 @@ from matplotlib.colors import to_rgb
 from PIL import Image
 
 from . import animate
+from . import stagecraft
 from .themes import mix
 from .voices import DEFAULT_VOICE as VOICE, DEFAULT_RATE as RATE
 W, H = 1920, 1080
@@ -86,6 +87,10 @@ def _headline(fig, T, text, y=0.87, size=58, color=None):
     w = t.get_window_extent(fig.canvas.get_renderer()).width
     if w > HEAD_MAX_W:
         t.set_fontsize(max(28, size * HEAD_MAX_W / w))
+    # a slide headline is given the treatment only when the caller passed no
+    # colour of its own, because a coloured headline is already the accent
+    if color is None:
+        stagecraft.letter(t, T)
     return t
 
 

@@ -5,7 +5,7 @@ character shirts, the web page, and the fade colour all read from the same
 object, so nothing mixes colours at draw time.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 
 @dataclass(frozen=True)
@@ -26,6 +26,7 @@ class Theme:
     ui: str        # accent for solid controls, dark enough for white text
     ground: str = "plain"   # the pattern laid under every scene
     light: str = "flat"     # the gradient laid over the ground
+    lettering: str = "plain"   # how headline type is treated
     blurb: str = ""         # one line describing the look, shown on the page
 
 
@@ -99,7 +100,7 @@ def mix(c1, c2, t):
 
 
 def _theme(name, label, bg, ink, a1, a2, ground="plain", light="flat",
-           blurb="", **fixed):
+           lettering="plain", blurb="", **fixed):
     derived = dict(
         bg=bg, ink=ink, a1=a1, a2=a2,
         panel=mix(bg, ink, 0.04),
@@ -111,7 +112,7 @@ def _theme(name, label, bg, ink, a1, a2, ground="plain", light="flat",
     derived.update(fixed)
     derived["ui"] = _ui_accent(derived["a1"], derived["a2"], ink)
     return Theme(name=name, label=label, ground=ground, light=light,
-                 blurb=blurb, **derived)
+                 lettering=lettering, blurb=blurb, **derived)
 
 
 # Cream keeps the hand-picked values the engine shipped with. The blends
@@ -134,24 +135,48 @@ THEMES = {
 THEMES.update({
     "mustard": _theme(
         "mustard", "Mustard", "#e6b23c", "#17140d", "#d0472a", "#0e6b60",
-        ground="stage", light="glow",
+        ground="stage", light="glow", lettering="slab",
         blurb="Saturated yellow, a solid floor, warm light on the speaker."),
     "riso": _theme(
         "riso", "Riso print", "#f2ece0", "#16120e", "#d8443a", "#2a4fbf",
-        ground="dots", light="flat",
+        ground="dots", light="flat", lettering="drop",
         blurb="Two ink colours on paper stock, flat and printed."),
     "coral": _theme(
         "coral", "Coral", "#ef8f6c", "#2a1410", "#f3cd68", "#1a6b74",
-        ground="rays", light="warm",
+        ground="rays", light="warm", lettering="halo",
         blurb="Warm ground, a sunburst behind the speaker, light from above."),
     "slate": _theme(
         "slate", "Slate", "#212c3a", "#f1eee4", "#efa531", "#4fb3a5",
-        ground="arch", light="spot",
+        ground="arch", light="spot", lettering="drop",
         blurb="Dark room, one panel behind the speaker, a pool of light."),
     "forest": _theme(
         "forest", "Deep forest", "#134339", "#f0f2e4", "#e8c46a", "#7cbd99",
-        ground="bars", light="vignette",
+        ground="bars", light="vignette", lettering="halo",
         blurb="Deep green, banded ground, the frame closing in."),
 })
 
 DEFAULT_THEME = "cream"
+
+
+# Light and lettering ship as part of a template but are not locked to it. A
+# template is a starting point, and the two axes most worth moving on their own
+# are how the frame is lit and how the type is set: the same palette under a
+# spotlight is a different film, and the same film with the words in a slab is
+# a different channel. Ground stays with the template, because a ground and a
+# palette are chosen together or they fight.
+LIGHT_LABELS = {"flat": "Even", "glow": "Warm pool", "vignette": "Closing in",
+                "warm": "From above", "spot": "Spotlight"}
+
+LETTERING_LABELS = {"plain": "Plain", "halo": "Haloed", "drop": "Drop shadow",
+                    "slab": "In a slab"}
+
+
+def resolve(name, light=None, lettering=None):
+    """The template to render with, after any choices made on top of it."""
+    T = THEMES.get(name, THEMES[DEFAULT_THEME])
+    changes = {}
+    if light in LIGHT_LABELS:
+        changes["light"] = light
+    if lettering in LETTERING_LABELS:
+        changes["lettering"] = lettering
+    return replace(T, **changes) if changes else T

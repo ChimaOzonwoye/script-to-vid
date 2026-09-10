@@ -82,3 +82,32 @@ def test_the_control_colour_still_belongs_to_the_theme():
         options = [mix(a, T.ink, i / 20)
                    for a in (T.a1, T.a2) for i in range(21)]
         assert T.ui in options, (T.name, T.ui)
+
+
+def test_light_and_lettering_can_be_moved_off_the_template():
+    """A template is a starting point. The two axes worth moving on their own
+    are how the frame is lit and how the type is set."""
+    from app.themes import resolve
+    assert resolve("cream").light == THEMES["cream"].light
+    assert resolve("cream", light="spot").light == "spot"
+    assert resolve("mustard", lettering="halo").lettering == "halo"
+    # everything else still comes from the template
+    assert resolve("mustard", light="spot").ground == THEMES["mustard"].ground
+
+
+def test_a_nonsense_override_is_ignored_rather_than_rendered():
+    """These arrive from a form post, so they cannot be trusted to name
+    anything that exists."""
+    from app.themes import resolve
+    assert resolve("cream", light="../../etc").light == "flat"
+    assert resolve("cream", lettering="").lettering == "plain"
+    assert resolve("no-such-template").name == DEFAULT_THEME
+
+
+def test_the_look_travels_on_the_theme_so_the_cache_covers_it():
+    """Segment keys are built from the theme object. An override that did not
+    live on it would leave a project showing its old lighting after a change."""
+    from dataclasses import asdict
+    from app.themes import resolve
+    a, b = resolve("cream"), resolve("cream", light="spot", lettering="slab")
+    assert asdict(a) != asdict(b)

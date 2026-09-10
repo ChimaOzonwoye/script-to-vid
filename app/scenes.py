@@ -146,15 +146,18 @@ def _caption(fig, T, b, text, side=None):
                      ha="center", va="center", fontsize=44, color=T.ink,
                      fontweight="bold", linespacing=1.2)
         _fit(fig, t, 620)
+        stagecraft.letter(t, T)
     elif where == "above":
         # clear of the logo, which starts higher up the right hand side
         t = fig.text(0.5, 0.76, text.upper(), ha="center", va="center",
                      fontsize=46, color=T.ink, fontweight="bold")
         _fit(fig, t, 1728)
+        stagecraft.letter(t, T)
     else:
         t = fig.text(0.5, 0.105, text.upper(), ha="center", va="center",
                      fontsize=42, color=T.ink, fontweight="bold")
         _fit(fig, t, 1728)
+        stagecraft.letter(t, T)
 
 
 def _draw(ax, b, T, x, ground, s, pose=None, expr=None, cast_i=None,
@@ -212,6 +215,7 @@ def _presenter_content(fig, T, b, side):
                  ha="center", va="center", fontsize=56, color=T.ink,
                  fontweight="bold", linespacing=1.16)
     _fit(fig, t, 980)
+    stagecraft.letter(t, T)
 
 
 def scene_presenter(fig, b, T):
