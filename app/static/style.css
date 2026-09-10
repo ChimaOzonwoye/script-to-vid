@@ -462,6 +462,45 @@ ul.projects a { font-weight: 600; text-decoration: none; font-size: 16.5px; }
 
 .warnlist { margin: 6px 0 0; padding-left: 20px; }
 
+/* ---------- skipped line review ---------- */
+.review {
+  margin-top: var(--s3);
+  padding: 14px 16px;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--accent) 5%, #fff);
+  border: 1px solid color-mix(in srgb, var(--accent) 16%, transparent);
+  font-size: 14px;
+}
+.review-head { margin: 0; color: color-mix(in srgb, var(--ink) 86%, var(--accent)); }
+.review-head + .review-list { margin-top: 9px; }
+.review-list { list-style: none; margin: 0; padding: 0; }
+.review-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s2);
+  padding: 6px 0;
+  border-top: 1px solid var(--edge-soft);
+}
+.review-list li:first-child { border-top: 0; }
+/* the line as the user typed it, so they can recognise it in the script */
+.review-text {
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--dim);
+  overflow-wrap: anywhere;
+}
+.review-list .button { flex: none; }
+#review-notes { margin-top: 4px; }
+#review-notes summary {
+  cursor: pointer;
+  padding: 6px 0;
+  color: var(--dim);
+  font-size: 13.5px;
+}
+#review-notes summary:hover { color: var(--ink); }
+#review-kept { margin-top: var(--s2); padding-top: 4px; }
+
 /* ---------- logo and music ---------- */
 
 #logo-preview {

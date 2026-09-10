@@ -50,6 +50,18 @@
       <input type="file" id="scriptfile" accept=".txt,.md" hidden>
       <span id="script-info"></span>
     </p>
+    <div id="review" class="review" hidden>
+      <p class="review-head"><span id="review-count"></span></p>
+      <ul id="review-list" class="review-list"></ul>
+      <details id="review-notes" hidden>
+        <summary id="review-notes-summary"></summary>
+        <ul id="review-notes-list" class="review-list"></ul>
+      </details>
+      <div id="review-kept" hidden>
+        <p class="review-head" id="review-kept-head"></p>
+        <ul id="review-kept-list" class="review-list"></ul>
+      </div>
+    </div>
     <div id="reuse" class="notice"></div>
     <div id="warnings" class="notice warn"></div>
   </section>
@@ -218,6 +230,7 @@ async function saveScript() {
     w.innerHTML = "<strong>Before you generate:</strong><ul class='warnlist'>" +
       a.warnings.map((x) => `<li>${x}</li>`).join("") + "</ul>";
   }
+  renderReview(a);
   const reuse = $("reuse");
   if (a.beats && (a.voices_cached || a.segments_cached)) {
     const newLines = a.beats - a.voices_cached;
@@ -227,6 +240,68 @@ async function saveScript() {
       (a.music_loops ? " The music is shorter than the video and will loop." : "");
   } else {
     reuse.textContent = "";
+  }
+}
+
+// ---- review panel ----
+// Lines that look like script notes are not spoken. Nothing is removed
+// silently: everything skipped is listed here with one click to put it back,
+// and everything put back with one click to skip it again.
+function row(item, keep) {
+  const li = document.createElement("li");
+  const text = document.createElement("span");
+  text.className = "review-text";
+  text.textContent = item.text;
+  const b = document.createElement("button");
+  b.type = "button";
+  b.className = "button quiet small";
+  b.textContent = keep ? "Speak this line" : "Skip it again";
+  b.addEventListener("click", async () => {
+    b.disabled = true;
+    const r = await fetch(`/p/${NAME}/keep`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text: item.text, keep: keep }),
+    });
+    if (r.ok) renderReview(await r.json());
+    else b.disabled = false;
+  });
+  li.append(text, b);
+  return li;
+}
+
+function fill(list, items, keep) {
+  list.innerHTML = "";
+  for (const it of items) list.append(row(it, keep));
+}
+
+function renderReview(a) {
+  const skipped = a.skipped || [];
+  const kept = a.kept || [];
+  $("review").hidden = !skipped.length && !kept.length;
+
+  // markers are shown, notes are folded away: a bracketed line or a comment
+  // is never wanted aloud, but a bare "Scene 3" is worth a glance
+  const markers = skipped.filter((s) => s.kind === "marker");
+  const notes = skipped.filter((s) => s.kind !== "marker");
+  const n = skipped.length;
+  $("review-count").textContent = n
+    ? `${n} ${n === 1 ? "line looks" : "lines look"} like script notes ` +
+      `and will not be spoken.`
+    : "";
+  $("review-count").hidden = !n;
+  fill($("review-list"), markers, true);
+  $("review-notes").hidden = !notes.length;
+  if (notes.length) {
+    $("review-notes-summary").textContent =
+      `Show ${notes.length} bracketed ${notes.length === 1 ? "line" : "lines"} and comments`;
+    fill($("review-notes-list"), notes, true);
+  }
+  $("review-kept").hidden = !kept.length;
+  if (kept.length) {
+    $("review-kept-head").textContent =
+      `${kept.length} ${kept.length === 1 ? "line" : "lines"} you put back will be spoken.`;
+    fill($("review-kept-list"), kept, false);
   }
 }
 

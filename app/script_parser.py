@@ -288,12 +288,16 @@ def _rotated_beat(say, cast_i, rot_i, prev_visual):
 def parse(text, keep=()):
     """Returns {"beats", "warnings", "words", "skipped"}.
 
+    `skipped` is every line that will not be spoken and `kept` is every line
+    that would have been skipped but which the user put back. Both are
+    reported so the page can offer the reverse of whatever it did.
+
     `keep` holds the exact text of lines the user has put back from the
     review panel. It is matched on the text rather than on a line number so
     that editing the script above a restored line cannot quietly restore a
     different one instead.
     """
-    beats, warnings, skipped = [], [], []
+    beats, warnings, skipped, kept = [], [], [], []
     keep = {k.strip() for k in (keep or ()) if k and k.strip()}
     pending, para = [], []
     chapter_n = 0
@@ -380,10 +384,13 @@ def parse(text, keep=()):
             # anything this cannot read is simply spoken
             kind, payload = "narration", s
         if kind in (NOTE, MARKER):
+            entry = {"line": line_no, "text": s, "kind": kind}
             if s in keep:
+                # reported too, so putting a line back is not a one way door
+                kept.append(entry)
                 kind, payload = "narration", _unquote(s)
             else:
-                skipped.append({"line": line_no, "text": s, "kind": kind})
+                skipped.append(entry)
                 continue
         if flood and kind == "chapter":
             # each heading was its own line and is its own thought, so it
@@ -431,4 +438,4 @@ def parse(text, keep=()):
 
     words = sum(len(b["say"].split()) for b in beats)
     return {"beats": beats, "warnings": warnings, "words": words,
-            "skipped": skipped}
+            "skipped": skipped, "kept": kept}

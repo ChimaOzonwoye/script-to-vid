@@ -89,3 +89,50 @@ def test_paste_to_download(server):
         assert b"-->" in srt.read()
         browser.close()
     shutil.rmtree(projects.path_of(name), ignore_errors=True)
+
+
+NOTEY = """[Scene 1 - a desk]
+0:00 - 0:15
+// re-record this bit
+Saving money is simple but not easy, and everyone knows it already.
+"""
+
+
+def test_the_review_panel_puts_a_line_back(server):
+    """The panel is the whole answer to lines this cannot judge from the
+    text, so it has to work in a browser, not just in the analysis."""
+    name = f"e2e-review-{uuid.uuid4().hex[:8]}"
+    with playwright.sync_playwright() as pw:
+        browser = pw.chromium.launch(
+            executable_path=os.environ.get("CHROMIUM_PATH") or None)
+        page = browser.new_page()
+        page.goto(server)
+        page.fill("input[name=name]", name)
+        with page.expect_navigation():
+            page.click("button[type=submit]")
+
+        page.fill("#script", NOTEY)
+        page.wait_for_selector("#review:not([hidden])")
+        assert "3 lines" in page.inner_text("#review-count")
+        # the bare timecode is shown, the bracketed line and comment folded
+        shown = page.eval_on_selector_all(
+            "#review-list li .review-text", "e => e.map(x => x.textContent)")
+        assert shown == ["0:00 - 0:15"]
+        assert "2 bracketed" in page.inner_text("#review-notes-summary")
+
+        page.locator("#review-list li").first.get_by_role("button").click()
+        page.wait_for_selector("#review-kept:not([hidden])")
+        assert "1 line you put back" in page.inner_text("#review-kept-head")
+
+        page.reload()
+        page.wait_for_selector("#review-kept:not([hidden])")
+        assert "1 line you put back" in page.inner_text("#review-kept-head")
+
+        page.locator("#review-kept li").first.get_by_role("button").click()
+        # waiting on the element would time out: it is still attached, and
+        # wait_for_selector wants it visible
+        page.wait_for_function(
+            "() => document.getElementById('review-kept').hidden")
+        assert "3 lines" in page.inner_text("#review-count")
+        browser.close()
+    shutil.rmtree(projects.path_of(name), ignore_errors=True)
