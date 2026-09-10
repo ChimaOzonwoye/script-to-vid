@@ -578,6 +578,12 @@ def build_music_bed(src, dst, need, work):
              f"[1:a]aresample=48000,aformat=channel_layouts=stereo[b];"
              f"[0:a][b]acrossfade=d={LOOP_XFADE}:c1=tri:c2=tri[a]",
              "-map", "[a]", "-ar", "48000", "-ac", "2", str(nxt)])
+        # Each pass writes another full length uncompressed file, so keeping
+        # them all costs the square of the video length: measured at 868 MB
+        # of scratch for ten minutes, against 115 MB of actual bed. Dropping
+        # the pass we have just consumed makes it linear. The audio is
+        # untouched; this is bookkeeping, not a change to how it sounds.
+        cur.unlink(missing_ok=True)
         cur = nxt
         total += have - LOOP_XFADE
     shutil.move(str(cur), dst)
