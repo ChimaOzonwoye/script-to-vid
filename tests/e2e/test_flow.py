@@ -136,3 +136,47 @@ def test_the_review_panel_puts_a_line_back(server):
         assert "3 lines" in page.inner_text("#review-count")
         browser.close()
     shutil.rmtree(projects.path_of(name), ignore_errors=True)
+
+
+def test_the_shell_carries_the_way_back_and_the_action(server):
+    """A form is a page you scroll; an app has a bar you can always reach.
+    The way back used to be a text link, and Generate sat below a music
+    library tall enough that you had to hunt for it.
+    """
+    name = f"e2e-shell-{uuid.uuid4().hex[:8]}"
+    with playwright.sync_playwright() as pw:
+        browser = pw.chromium.launch(
+            executable_path=os.environ.get("CHROMIUM_PATH") or None)
+        page = browser.new_page(viewport={"width": 1100, "height": 900})
+        page.goto(server)
+        page.fill("input[name=name]", name)
+        with page.expect_navigation():
+            page.click("button[type=submit]")
+
+        # the bar stays put and names the project
+        page.mouse.wheel(0, 1200)
+        page.wait_for_timeout(300)
+        assert page.locator(".appbar").is_visible()
+        assert name in page.inner_text(".appbar-name")
+
+        # each step says what it is set to, without opening it
+        assert page.inner_text("#chip-voice").strip()
+        assert page.inner_text("#chip-look").strip()
+
+        # the action follows you, and stands down where the real one is
+        assert page.locator("#actionbar").is_visible()
+        page.locator("#generate").scroll_into_view_if_needed()
+        page.wait_for_timeout(400)
+        assert page.locator("#actionbar").is_hidden(), \
+            "two of the same button on screen at once"
+
+        # one shared player for the library, not a control on every row
+        assert page.locator("ul.tracks audio").count() == 0
+        assert page.locator(".playbtn").count() > 0
+
+        with page.expect_navigation():
+            page.click(".backbtn")
+        assert page.url.rstrip("/").endswith(server.rstrip("/").split("/")[-1]) \
+            or page.url.rstrip("/") == server.rstrip("/")
+        browser.close()
+    shutil.rmtree(projects.path_of(name), ignore_errors=True)

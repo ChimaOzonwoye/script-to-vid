@@ -112,7 +112,133 @@ main {
   z-index: 1;
   max-width: 780px;
   margin: 0 auto;
-  padding: var(--s5) var(--s4) 140px;
+  padding: var(--s4) var(--s4) 140px;
+}
+
+/* ---------- app bar ---------- */
+/* An app has a bar you can always reach, not a title block that scrolls
+   away. It carries the way back, which used to be a text link nobody would
+   read as a control. */
+.appbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: color-mix(in srgb, var(--bg) 78%, #fff);
+  backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--edge-soft);
+}
+.appbar-in {
+  max-width: 780px;
+  margin: 0 auto;
+  padding: 9px var(--s4);
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+}
+.appbar .mark {
+  width: 26px;
+  height: 34px;
+  filter: none;
+}
+.appbar-name {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+  margin-left: auto;
+  margin-right: auto;
+}
+.appbar-name h1 {
+  margin: 0;
+  font-size: 19px;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.backbtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  flex: none;
+  padding: 6px 12px 6px 7px;
+  border-radius: 999px;
+  border: 1px solid var(--edge-soft);
+  background: color-mix(in srgb, #fff 70%, var(--bg));
+  color: var(--accent);
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: border-color .18s, background .18s;
+}
+.backbtn:hover {
+  text-decoration: none;
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+  background: #fff;
+}
+.backbtn svg { width: 18px; height: 18px; }
+.appbar-state {
+  flex: none;
+  padding: 4px 11px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--accent);
+  font-size: 12.5px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* ---------- what each step is currently set to ---------- */
+/* not .chip: the theme swatches already use that for their colour dots */
+.stepval {
+  margin-left: auto;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ink) 6%, transparent);
+  color: var(--dim);
+  font-family: var(--ui);
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 45%;
+}
+.stepval:empty { display: none; }
+
+/* ---------- the primary action follows you down the page ---------- */
+.actionbar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 20;
+  background: color-mix(in srgb, var(--bg) 82%, #fff);
+  backdrop-filter: blur(14px);
+  border-top: 1px solid var(--edge-soft);
+}
+.actionbar-in {
+  max-width: 780px;
+  margin: 0 auto;
+  padding: 11px var(--s4);
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+}
+.actionbar-info {
+  color: var(--dim);
+  font-size: 14px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+#generate-sticky {
+  margin-left: auto;
+  flex: none;
+  padding: 11px 26px;
 }
 
 /* ---------- type ---------- */
@@ -531,8 +657,29 @@ ul.projects a { font-weight: 600; text-decoration: none; font-size: 16.5px; }
   transition: border-color .18s;
 }
 .tracks li:hover { border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
-.tracks .len { color: var(--dim); font-size: 13px; margin-left: auto; }
-.tracks audio { height: 30px; max-width: 185px; }
+.tracks .tname { min-width: 0; overflow: hidden; text-overflow: ellipsis;
+                 white-space: nowrap; }
+.tracks .len { color: var(--dim); font-size: 13px; margin-left: auto; flex: none; }
+.tracks .use-track { flex: none; }
+
+/* one shared player and a button per row. A full audio control on every
+   track made the library taller than the rest of the page put together. */
+.playbtn {
+  flex: none;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+  background: color-mix(in srgb, var(--accent) 9%, #fff);
+  color: var(--accent);
+  cursor: pointer;
+}
+.playbtn:hover { background: color-mix(in srgb, var(--accent) 17%, #fff); }
+.playbtn svg { width: 16px; height: 16px; }
 
 hr.sub { border: 0; border-top: 1px solid var(--edge-soft); margin: var(--s4) 0; }
 

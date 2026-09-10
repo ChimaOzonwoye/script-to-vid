@@ -16,14 +16,24 @@
 </style>
 </head>
 <body>
-<main>
-  <header class="masthead">
-    {% include "_mark.html" %}
-    <div class="who">
+<header class="appbar">
+  <div class="appbar-in">
+    <a class="backbtn" href="/">
+      <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+        <path d="M12.5 4.5 7 10l5.5 5.5" fill="none" stroke="currentColor"
+              stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <span>Projects</span>
+    </a>
+    <div class="appbar-name">
+      {% include "_mark.html" %}
       <h1>{{ name }}</h1>
-      <a class="back" href="/">&larr; all projects</a>
     </div>
-  </header>
+    <span class="appbar-state" id="appbar-state"
+          {{ '' if has_video else 'hidden' }}>Video ready</span>
+  </div>
+</header>
+<main>
 
   <section class="step">
     <h2><span class="stepnum">1</span>Project</h2>
@@ -74,7 +84,7 @@
   </section>
 
   <section class="step" id="voice">
-    <h2><span class="stepnum">3</span>Voice</h2>
+    <h2><span class="stepnum">3</span>Voice<span class="stepval" id="chip-voice"></span></h2>
     <p class="hint">Who reads your script. Press play to hear each one before
     you choose.</p>
     <div class="voicepick">
@@ -100,7 +110,7 @@
   </section>
 
   <section class="step" id="look">
-    <h2><span class="stepnum">4</span>Look</h2>
+    <h2><span class="stepnum">4</span>Look<span class="stepval" id="chip-look"></span></h2>
     <p class="hint">The page shows the theme you pick. So will the video.</p>
     <div class="swatches">
       {% for key, t in themes.items() %}
@@ -121,7 +131,7 @@
   </section>
 
   <section class="step">
-    <h2><span class="stepnum">5</span>Logo <small>(optional)</small></h2>
+    <h2><span class="stepnum">5</span>Logo<span class="stepval" id="chip-logo">{{ "Set" if has_logo else "None" }}</span></h2>
     <p class="hint">A square .png or .jpg. It is shown as a circle in the top
     right corner, and large on the end card.</p>
     <p>
@@ -137,7 +147,7 @@
   </section>
 
   <section class="step">
-    <h2><span class="stepnum">6</span>Music <small>(optional)</small></h2>
+    <h2><span class="stepnum">6</span>Music<span class="stepval" id="chip-music">{{ music_length if has_music else "None" }}</span></h2>
     <p class="hint">Quiet instrumental under the voice. It ducks down while the
     voice speaks and loops smoothly if it is shorter than the video.</p>
     <div id="music-note" class="notice">{% if has_music %}This project has
@@ -146,13 +156,20 @@
     {% if tracks %}
     <p class="hint"><strong>Pick from the starter
     library.</strong> These ship with the app and are free to use, including on a monetised channel.</p>
+    <audio id="track-audio" preload="none"></audio>
     <ul class="tracks">
       {% for t in tracks %}
       <li>
-        <button type="button" class="small use-track" data-track="{{ t.file }}">Use</button>
-        <span>{{ t.name }}</span>
-        <audio controls preload="none" src="/library/{{ t.file }}"></audio>
+        <button type="button" class="playbtn" data-src="/library/{{ t.file }}"
+                aria-label="Play {{ t.name }}">
+          <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+            <path d="M5 3.5v9l7-4.5z" fill="currentColor"/>
+          </svg>
+        </button>
+        <span class="tname">{{ t.name }}</span>
         <span class="len">{{ t.length }}</span>
+        <button type="button" class="small quiet use-track"
+                data-track="{{ t.file }}">Use</button>
       </li>
       {% endfor %}
     </ul>
@@ -194,6 +211,13 @@
     </div>
   </section>
 
+  <div class="actionbar" id="actionbar" hidden>
+    <div class="actionbar-in">
+      <span class="actionbar-info" id="actionbar-info"></span>
+      <button id="generate-sticky">Generate</button>
+    </div>
+  </div>
+
   <footer>
     Close this tab when you are done. To come back, use the
     <strong>script to vid</strong> shortcut on your Desktop.
@@ -231,6 +255,7 @@ async function saveScript() {
   if (!r.ok) return;
   const a = await r.json();
   $("script-info").textContent = a.words ? a.estimate : "";
+  $("actionbar-info").textContent = a.words ? a.estimate : "Nothing to generate yet";
   const w = $("warnings");
   w.innerHTML = "";
   if (a.warnings.length) {
@@ -343,6 +368,7 @@ async function saveVoice() {
   fd.append("rate", currentRate());
   const a = await (await fetch(`/p/${NAME}/voice`, { method: "POST", body: fd })).json();
   $("voice-note").textContent = a.error || a.message;
+  refreshSteps();
   saveScript();   // the runtime estimate depends on the speed
 }
 
@@ -394,6 +420,7 @@ $("logofile").addEventListener("change", async (e) => {
     img.src = a.preview + "?t=" + Date.now();
     img.style.display = "block";
     $("logo-remove").hidden = false;
+    $("chip-logo").textContent = "Set";
   }
 });
 
@@ -402,11 +429,15 @@ $("logo-remove").addEventListener("click", async () => {
   $("logo-note").textContent = a.message;
   $("logo-preview").style.display = "none";
   $("logo-remove").hidden = true;
+  $("chip-logo").textContent = "None";
 });
 
 function musicDone(a) {
   $("music-note").textContent = a.error || a.message;
-  if (!a.error) $("music-remove").hidden = false;
+  if (!a.error) {
+    $("music-remove").hidden = false;
+    $("chip-music").textContent = a.length || "Set";
+  }
 }
 
 $("musicfile").addEventListener("change", async (e) => {
@@ -434,12 +465,21 @@ $("music-remove").addEventListener("click", async () => {
   const a = await (await fetch(`/p/${NAME}/music/remove`, { method: "POST" })).json();
   $("music-note").textContent = a.message;
   $("music-remove").hidden = true;
+  $("chip-music").textContent = "None";
 });
 
 let polling = null;
-$("generate").addEventListener("click", async () => {
+
+// The button in step 7 and the one in the bar are the same action, so they
+// share a routine and a disabled state. Two buttons that can disagree about
+// whether a render is running is a bug waiting to happen.
+function setGenerating(on) {
+  for (const id of ["generate", "generate-sticky"]) $(id).disabled = on;
+}
+
+async function startGenerate() {
   $("gen-error").textContent = "";
-  $("generate").disabled = true;
+  setGenerating(true);
   $("progress").textContent = "Starting...";
   showBar("voice");
   const r = await fetch(`/p/${NAME}/generate`, {
@@ -450,12 +490,16 @@ $("generate").addEventListener("click", async () => {
   const a = await r.json();
   if (a.error) {
     $("gen-error").textContent = a.error;
-    $("generate").disabled = false;
+    setGenerating(false);
     $("progress").textContent = "";
+    $("generate").scrollIntoView({ block: "center", behavior: "smooth" });
     return;
   }
   polling = setInterval(poll, 800);
-});
+}
+
+$("generate").addEventListener("click", startGenerate);
+$("generate-sticky").addEventListener("click", startGenerate);
 
 const STAGES = ["voice", "slides", "segments", "final"];
 
@@ -475,8 +519,9 @@ async function poll() {
   showBar(s.state === "running" ? s.stage : null);
   if (s.state === "done" || s.state === "error") {
     clearInterval(polling);
-    $("generate").disabled = false;
+    setGenerating(false);
     if (s.state === "done") {
+      $("appbar-state").hidden = false;
       $("result").hidden = false;
       $("player").src = `/files/${NAME}/out/final.mp4?t=` + Date.now();
       $("dl-video").href = `/files/${NAME}/out/final.mp4`;
@@ -488,6 +533,69 @@ async function poll() {
     }
   }
 }
+// ---- app shell ----
+// What each step is currently set to, shown in its header, so the page can
+// be read at a glance instead of scrolled through.
+function refreshSteps() {
+  const v = voiceSelect.selectedOptions[0];
+  const rate = document.querySelector(".rate.selected");
+  $("chip-voice").textContent = v
+    ? v.textContent.replace(/\s*\(.*\)\s*$/, "") +
+      (rate ? ", " + rate.textContent.trim() : "")
+    : "";
+  const look = document.querySelector(".swatch.selected .label");
+  $("chip-look").textContent = look ? look.textContent.trim() : "";
+}
+
+// The action bar carries the primary action only while step 7 is out of
+// sight. Shown at the same time as the real button it would be two of the
+// same control on screen at once.
+const genStep = $("generate").closest("section.step");
+if ("IntersectionObserver" in window) {
+  new IntersectionObserver((entries) => {
+    $("actionbar").hidden = entries[0].isIntersecting;
+  }, { rootMargin: "-10px 0px -80px 0px" }).observe(genStep);
+} else {
+  $("actionbar").hidden = false;
+}
+
+// ---- starter library ----
+// One player for the whole list; a control per row would make the library
+// taller than everything else on the page put together.
+const trackAudio = $("track-audio");
+const PLAY = "M5 3.5v9l7-4.5z";
+const PAUSE = "M5 4h2.2v8H5zm3.8 0H11v8H8.8z";
+
+function paintPlay(btn, playing) {
+  btn.classList.toggle("playing", playing);
+  btn.querySelector("path").setAttribute("d", playing ? PAUSE : PLAY);
+  const name = btn.nextElementSibling.textContent.trim();
+  btn.setAttribute("aria-label", (playing ? "Pause " : "Play ") + name);
+}
+
+function stopAllTracks() {
+  for (const b of document.querySelectorAll(".playbtn")) paintPlay(b, false);
+}
+
+for (const btn of document.querySelectorAll(".playbtn")) {
+  btn.addEventListener("click", () => {
+    const mine = trackAudio.src.endsWith(btn.dataset.src);
+    if (mine && !trackAudio.paused) { trackAudio.pause(); return; }
+    if (!mine) { trackAudio.src = btn.dataset.src; }
+    voiceAudio.pause();
+    trackAudio.play().catch(() => {});
+  });
+}
+trackAudio.addEventListener("play", () => {
+  stopAllTracks();
+  const on = [...document.querySelectorAll(".playbtn")]
+    .find((b) => trackAudio.src.endsWith(b.dataset.src));
+  if (on) paintPlay(on, true);
+});
+trackAudio.addEventListener("pause", stopAllTracks);
+trackAudio.addEventListener("ended", stopAllTracks);
+
+refreshSteps();
 </script>
 </body>
 </html>
