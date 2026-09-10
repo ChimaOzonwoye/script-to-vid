@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Join videos - script to vid</title>
+<link rel="icon" href="/static/icon.png">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+:root {
+  --bg: {{ theme.bg }}; --panel: {{ theme.panel }}; --ink: {{ theme.ink }};
+  --dim: {{ theme.dim }}; --grid: {{ theme.grid }};
+  --accent: {{ theme.ui }}; --accent2: {{ theme.a1 }};
+  --accent-pale: {{ theme.a2_pale }}; --accent2-pale: {{ theme.a1_pale }};
+}
+</style>
+</head>
+<body>
+{% include "_stage.html" %}
+<header class="appbar">
+  <div class="appbar-in">
+    <a class="backbtn" href="/">
+      <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+        <path d="M12.5 4.5 7 10l5.5 5.5" fill="none" stroke="currentColor"
+              stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <span>Projects</span>
+    </a>
+    <div class="appbar-name">
+      {% include "_mark.html" %}
+      <h1>Join videos</h1>
+    </div>
+  </div>
+</header>
+<main>
+  <section class="step">
+    <h2><span class="stepnum">1</span>Pick the videos</h2>
+    <p class="hint">Tick them in the order you want them to play. A long
+    script that will not render in one go can be made as several projects and
+    joined here.</p>
+    <ul class="clips" id="clips">
+      {% for c in clips %}
+      <li data-id="{{ c.id }}">
+        <button type="button" class="pick" aria-pressed="false">
+          <span class="pick-n"></span>
+        </button>
+        <span class="tname">{{ c.name }}</span>
+        <span class="where">{{ c.where }}</span>
+        <span class="len">{{ c.length }}</span>
+        {% if not c.ready %}<span class="stepval">needs converting</span>{% endif %}
+        {% if c.where == "uploaded" %}
+        <button type="button" class="small quiet drop">Remove</button>
+        {% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+    <p class="hint" id="empty" {{ '' if not clips else 'hidden' }}>
+      No videos yet. Make one on the projects page, or add a file below.</p>
+    <hr class="sub">
+    <p class="hint"><strong>Or add a video from your computer.</strong>
+    MP4, MOV, M4V or WEBM.</p>
+    <p>
+      <label class="button quiet small" for="videofile">Choose a video</label>
+      <input type="file" id="videofile" accept=".mp4,.mov,.m4v,.webm" hidden>
+      <span id="add-note"></span>
+    </p>
+  </section>
+
+  <section class="step">
+    <h2><span class="stepnum">2</span>Join</h2>
+    <p class="hint" id="plan">Pick two or more videos above.</p>
+    <p><button id="join">Join them</button></p>
+    <p class="progress" id="progress"></p>
+    <div class="bar" id="bar"><i></i><i></i></div>
+    <div id="join-error" class="notice error"></div>
+    <div id="result" {{ '' if has_video else 'hidden' }}>
+      <video id="player" controls
+             {% if has_video %}src="/merges/out/joined.mp4"{% endif %}></video>
+      <div class="downloads">
+        <a class="button" id="dl" download="joined.mp4"
+           href="/merges/out/joined.mp4">Download the video</a>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    Close this tab when you are done. To come back, use the
+    <strong>script to vid</strong> shortcut on your Desktop.
+  </footer>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+let order = [];      // clip ids, in the order they were ticked
+
+function paint() {
+  for (const li of document.querySelectorAll("#clips li")) {
+    const at = order.indexOf(li.dataset.id);
+    const btn = li.querySelector(".pick");
+    btn.setAttribute("aria-pressed", at >= 0 ? "true" : "false");
+    // the number is the running order, which is the whole point of ticking
+    // them one at a time rather than using checkboxes
+    btn.querySelector(".pick-n").textContent = at >= 0 ? at + 1 : "";
+    li.classList.toggle("on", at >= 0);
+  }
+  const convert = order.filter((id) => {
+    const li = document.querySelector(`#clips li[data-id="${CSS.escape(id)}"]`);
+    return li && li.querySelector(".stepval");
+  }).length;
+  $("plan").textContent = order.length < 2
+    ? "Pick two or more videos above."
+    : convert
+      ? `${order.length} videos. ${convert} need converting first, which takes ` +
+        "a few minutes."
+      : `${order.length} videos. They already match, so this takes seconds.`;
+  $("join").disabled = order.length < 2;
+}
+
+function wire() {
+  for (const li of document.querySelectorAll("#clips li")) {
+    li.querySelector(".pick").addEventListener("click", () => {
+      const id = li.dataset.id;
+      const at = order.indexOf(id);
+      if (at >= 0) order.splice(at, 1); else order.push(id);
+      paint();
+    });
+    const drop = li.querySelector(".drop");
+    if (drop) drop.addEventListener("click", async () => {
+      const r = await fetch("/merge/remove", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: li.dataset.id }),
+      });
+      if (r.ok) location.reload();
+    });
+  }
+  paint();
+}
+
+$("videofile").addEventListener("change", async (e) => {
+  const f = e.target.files[0];
+  if (!f) return;
+  $("add-note").textContent = "Adding...";
+  const fd = new FormData();
+  fd.append("file", f);
+  const a = await (await fetch("/merge/upload", { method: "POST", body: fd })).json();
+  if (a.error) { $("add-note").textContent = a.error; return; }
+  location.reload();
+});
+
+let polling = null;
+$("join").addEventListener("click", async () => {
+  $("join-error").textContent = "";
+  $("join").disabled = true;
+  $("progress").textContent = "Starting...";
+  $("bar").classList.add("on");
+  const a = await (await fetch("/merge/join", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ clips: order }),
+  })).json();
+  if (a.error) {
+    $("join-error").textContent = a.error;
+    $("join").disabled = false;
+    $("progress").textContent = "";
+    $("bar").classList.remove("on");
+    return;
+  }
+  polling = setInterval(poll, 700);
+});
+
+async function poll() {
+  const s = await (await fetch("/merge/status")).json();
+  $("progress").textContent = s.message || "";
+  const at = (s.message || "").startsWith("Step 2") ? 1 : 0;
+  [...$("bar").children].forEach((seg, i) => {
+    seg.className = i < at ? "done" : i === at ? "now" : "";
+  });
+  if (s.state === "done" || s.state === "error") {
+    clearInterval(polling);
+    $("join").disabled = false;
+    $("bar").classList.remove("on");
+    if (s.state === "done") {
+      $("result").hidden = false;
+      $("player").src = "/merges/out/joined.mp4?t=" + Date.now();
+      $("dl").href = "/merges/out/joined.mp4";
+    } else {
+      $("join-error").textContent = s.message;
+      $("progress").textContent = "";
+    }
+  }
+}
+
+wire();
+</script>
+</body>
+</html>

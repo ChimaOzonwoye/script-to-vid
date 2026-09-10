@@ -2,6 +2,7 @@
 
 Write a script. Get back a narrated video with visuals, subtitles, your logo
 and music. Characters blink and their mouths move in time with the narration.
+Finished videos can be joined into one, so a long script can be made in parts.
 Runs on your own computer, free, no editing software.
 
 ## Install
@@ -84,6 +85,24 @@ speed has three settings.
 Re-running is cheap. Editing one line only remakes that line. Changing the
 look reuses the whole voiceover. Changing the voice remakes the narration and
 nothing else.
+
+## Joining videos
+
+**Join videos** on the front page puts finished videos together into one, in
+whatever order you tick them.
+
+It is there for two reasons. A long script may be more than a given computer
+can render in one sitting, so make it as two or three projects and join the
+parts at the end. And a joiner is useful on its own, so it takes video files
+from anywhere, not just ones made here.
+
+Videos made by this app are never re-encoded, because they already share one
+shape, so joining them takes seconds however long they are. A video from
+somewhere else is converted to that shape first, which takes minutes, and the
+page says which of the two is about to happen before you start. Anything of a
+different size is letterboxed rather than stretched, and a clip with no sound
+has silence put in, because otherwise the audio would stop at that point and
+never come back.
 
 ## The script format
 

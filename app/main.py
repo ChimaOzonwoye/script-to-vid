@@ -16,7 +16,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from PIL import Image
 
-from . import engine, projects, voices
+from . import engine, joiner, projects, voices
 from .script_parser import parse
 from .themes import THEMES, DEFAULT_THEME
 
@@ -27,11 +27,18 @@ app.mount("/static", StaticFiles(directory=HERE / "static"), name="static")
 projects.PROJECTS_DIR.mkdir(exist_ok=True)
 app.mount("/files", StaticFiles(directory=projects.PROJECTS_DIR), name="files")
 
+projects.MERGES_DIR.mkdir(exist_ok=True)
+(projects.MERGES_DIR / "uploads").mkdir(exist_ok=True)
+app.mount("/merges", StaticFiles(directory=projects.MERGES_DIR), name="merges")
+
 MUSIC_DIR = projects.ROOT / "assets" / "music"
 if MUSIC_DIR.is_dir():
     app.mount("/library", StaticFiles(directory=MUSIC_DIR), name="library")
 voices.SAMPLE_DIR.mkdir(parents=True, exist_ok=True)
 app.mount("/voices", StaticFiles(directory=voices.SAMPLE_DIR), name="voices")
+
+JOIN_STAGES = {"convert": ("1", "converting the videos that need it"),
+               "join": ("2", "joining them")}
 
 STAGES = {"voice": ("1", "generating the voiceover"),
           "slides": ("2", "drawing slides"),
@@ -370,3 +377,133 @@ async def generate(name: str, request: Request):
 @app.get("/p/{name}/status")
 def status(name: str):
     return RENDERS.get(name, {"state": "idle", "message": ""})
+
+
+# ----------------------------------------------------------------------
+# joining videos
+# A long script that will not render in one go on a given machine is made as
+# several projects and joined here. The same page takes video files from
+# anywhere, so it doubles as a plain joiner.
+# ----------------------------------------------------------------------
+
+JOIN = {"state": "idle", "message": ""}
+
+
+def _uploads():
+    d = projects.MERGES_DIR / "uploads"
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+def _clip_path(clip_id):
+    """Where one item in the list actually lives, or None if it is gone."""
+    kind, _, rest = (clip_id or "").partition(":")
+    if kind == "project" and projects.slugify(rest) and projects.exists(rest):
+        p = projects.path_of(rest) / "out" / "final.mp4"
+        return p if p.exists() else None
+    if kind == "file":
+        p = _uploads() / Path(rest).name
+        return p if p.exists() else None
+    return None
+
+
+def _library():
+    """Everything that can go into a join: finished project videos first,
+    then anything uploaded here."""
+    out = []
+    for p in projects.list_projects():
+        if p["has_video"]:
+            v = projects.path_of(p["name"]) / "out" / "final.mp4"
+            info = joiner.probe(v) or {}
+            out.append({"id": f"project:{p['name']}", "name": p["name"],
+                        "where": "made here",
+                        "length": _mmss(info.get("seconds") or 0),
+                        "ready": joiner.ready_to_copy(info)})
+    for f in sorted(_uploads().glob("*")):
+        if f.is_file():
+            info = joiner.probe(f) or {}
+            out.append({"id": f"file:{f.name}", "name": f.name,
+                        "where": "uploaded",
+                        "length": _mmss(info.get("seconds") or 0) if info else "?",
+                        "ready": joiner.ready_to_copy(info)})
+    return out
+
+
+@app.get("/merge", response_class=HTMLResponse)
+def merge_page(request: Request):
+    out = projects.MERGES_DIR / "out" / "joined.mp4"
+    return templates.TemplateResponse(request, "merge.html", {
+        "clips": _library(),
+        "has_video": out.exists(),
+        "theme": THEMES[DEFAULT_THEME],
+    })
+
+
+@app.post("/merge/upload")
+async def merge_upload(file: UploadFile = File(...)):
+    name = Path(file.filename or "").name
+    if Path(name).suffix.lower() not in (".mp4", ".mov", ".m4v", ".webm"):
+        return fail(f"That file is a {Path(name).suffix or 'file with no type'}. "
+                    "Videos here need to be .mp4, .mov, .m4v or .webm.")
+    dest = _uploads() / name
+    dest.write_bytes(await file.read())
+    if joiner.probe(dest) is None:
+        dest.unlink(missing_ok=True)
+        return fail(f"{name} could not be read as a video. It may be damaged, "
+                    "or not really a video file.")
+    return {"clips": _library(), "message": f"Added {name}."}
+
+
+@app.post("/merge/remove")
+async def merge_remove(request: Request):
+    body = await request.json()
+    p = _clip_path(body.get("id", ""))
+    if p and _uploads() in p.parents:
+        p.unlink(missing_ok=True)
+    return {"clips": _library()}
+
+
+def _join_worker(paths, dest, work):
+    def progress(stage, done, total):
+        n, label = JOIN_STAGES[stage]
+        of = f" ({min(done + 1, total)} of {total})" if total > 1 else ""
+        JOIN.update(state="running", message=f"Step {n} of 2: {label}{of}")
+    try:
+        r = joiner.join(paths, dest, work, progress)
+        made = (", after converting " + ", ".join(r["converted"])
+                if r["converted"] else "")
+        JOIN.update(state="done", message=f"Done{made}. Your video is ready below.")
+    except engine.RenderError as e:
+        JOIN.update(state="error", message=str(e))
+    except Exception:
+        JOIN.update(state="error", message=(
+            "Something went wrong while joining. Try again, and leave out any "
+            "video you are unsure about."))
+
+
+@app.post("/merge/join")
+async def merge_join(request: Request):
+    if JOIN.get("state") == "running":
+        return fail("A join is already running.")
+    body = await request.json()
+    ids = body.get("clips") or []
+    paths, missing = [], []
+    for c in ids:
+        p = _clip_path(c)
+        (paths.append(p) if p else missing.append(c))
+    if missing:
+        return fail("Some of those videos are not there any more. Reload the "
+                    "page and pick again.")
+    if len(paths) < 2:
+        return fail("Pick at least two videos to join.")
+    dest = projects.MERGES_DIR / "out" / "joined.mp4"
+    JOIN.update(state="running", message="Starting...")
+    threading.Thread(target=_join_worker,
+                     args=(paths, dest, projects.MERGES_DIR / "work"),
+                     daemon=True).start()
+    return {"ok": True, "plan": joiner.plan(paths)["convert"]}
+
+
+@app.get("/merge/status")
+def merge_status():
+    return JOIN

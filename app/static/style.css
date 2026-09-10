@@ -669,6 +669,45 @@ ul.projects a { font-weight: 600; text-decoration: none; font-size: 16.5px; }
 .fmt summary:hover { color: var(--ink); }
 .fmt .hint { margin-top: 4px; }
 
+/* ---------- clips to join ---------- */
+.clips { list-style: none; padding: 0; margin: var(--s3) 0 0; }
+.clips li {
+  display: flex; align-items: center; gap: var(--s2);
+  padding: 9px var(--s2);
+  margin-bottom: 7px;
+  background: color-mix(in srgb, var(--bg) 48%, #fff);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--ink) 5%, transparent);
+  font-size: 15px;
+}
+.clips li.on {
+  background: color-mix(in srgb, var(--accent) 8%, #fff);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 38%, transparent);
+}
+.clips .where { color: var(--dim); font-size: 12.5px; flex: none; }
+.clips .len { color: var(--dim); font-size: 13px; margin-left: auto; flex: none; }
+.clips .drop, .clips .stepval { flex: none; }
+
+/* the number is the running order, which is why these are ticked one at a
+   time rather than being checkboxes */
+.pick {
+  flex: none;
+  width: 30px; height: 30px; padding: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 50%;
+  border: 1px solid color-mix(in srgb, var(--ink) 18%, transparent);
+  background: #fff;
+  color: var(--accent);
+  font-weight: 700;
+  font-size: 13.5px;
+  cursor: pointer;
+}
+.pick[aria-pressed="true"] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
 /* ---------- skipped line review ---------- */
 .review {
   margin-top: var(--s3);
