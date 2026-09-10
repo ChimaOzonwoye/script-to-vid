@@ -4,12 +4,16 @@
 #
 # Run from inside a copy of the repository it installs that copy in place.
 # Run on its own it downloads the repository first.
+#
+# Set STV_BRANCH to install a branch other than main, which is how a change
+# gets tried on a real machine before it is merged.
 
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"   # the progress bar makes downloads crawl
 
 $Repo = "https://github.com/ChimaOzonwoye/script-to-vid"
-$Zip = "$Repo/archive/refs/heads/main.zip"
+$Branch = if ($env:STV_BRANCH) { $env:STV_BRANCH } else { "main" }
+$Zip = "$Repo/archive/refs/heads/$Branch.zip"
 $Dest = if ($env:STV_DIR) { $env:STV_DIR } else { Join-Path $HOME "script-to-vid" }
 
 function Fail($msg) {
@@ -51,12 +55,24 @@ if ((Test-Path "requirements.txt") -and (Test-Path "app")) {
         Fail ("The download failed. Check your internet connection and paste`n" +
               "the command again.")
     }
+    # Unpack fully before touching what is installed, so a download that
+    # fails half way leaves the working install exactly as it was.
     $stage = Join-Path $env:TEMP "script-to-vid-stage"
     if (Test-Path $stage) { Remove-Item $stage -Recurse -Force }
     Expand-Archive $tmp -DestinationPath $stage -Force
     $inner = Get-ChildItem $stage -Directory | Select-Object -First 1
+
+    # The videos live in projects/ inside the install folder, so replacing
+    # the code must not take them with it. This used to delete the lot.
+    $saved = Join-Path $stage "kept-projects"
+    $mine = Join-Path $Dest "projects"
+    if (Test-Path $mine) { Move-Item $mine $saved }
     if (Test-Path $Dest) { Remove-Item $Dest -Recurse -Force }
     Move-Item $inner.FullName $Dest
+    if (Test-Path $saved) {
+        Move-Item $saved (Join-Path $Dest "projects")
+        Write-Host "Kept the videos you had already made."
+    }
     Remove-Item $tmp -Force
     Remove-Item $stage -Recurse -Force -ErrorAction SilentlyContinue
 }
