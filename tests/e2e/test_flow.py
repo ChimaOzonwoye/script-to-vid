@@ -214,3 +214,59 @@ def test_the_margin_scene_stays_out_of_the_way(server):
         assert not page.evaluate(
             "document.documentElement.scrollWidth > window.innerWidth + 1")
         browser.close()
+
+
+def test_the_gallery_falls_back_when_a_video_will_not_decode(server):
+    """Each project on the front page shows a frame of its own finished
+    video. A browser that will not decode the file has to show the empty
+    frame rather than a black rectangle, and this is testable here because
+    the Chromium the tests run against has no H.264 at all."""
+    with playwright.sync_playwright() as pw:
+        browser = pw.chromium.launch(
+            executable_path=os.environ.get("CHROMIUM_PATH") or None)
+        page = browser.new_page()
+        page.goto(server, wait_until="networkidle")
+        if page.locator(".gallery .card").count() == 0:
+            page.fill('input[name="name"]', f"gal-{uuid.uuid4().hex[:6]}")
+            page.click('button[type="submit"]')
+            page.goto(server, wait_until="networkidle")
+
+        cards = page.locator(".gallery .card")
+        assert cards.count() >= 1
+        # the empty frame is in the markup for every card, so there is always
+        # something to see whatever the browser does with the file
+        assert page.locator(".gallery .shot-empty").count() == cards.count()
+        page.wait_for_timeout(1200)
+        videos = page.locator(".gallery video")
+        for i in range(videos.count()):
+            klass = videos.nth(i).get_attribute("class") or ""
+            assert "shown" not in klass, \
+                "a video that never decoded was faded in over the frame"
+        browser.close()
+
+
+def test_the_step_index_is_never_under_the_margin_scene(server):
+    """The index took the left gutter the figures used to stand in. They are
+    only allowed back once the screen is wide enough for both."""
+    name = f"rail-{uuid.uuid4().hex[:6]}"
+    projects.create(name, with_example=True)
+    try:
+        with playwright.sync_playwright() as pw:
+            browser = pw.chromium.launch(
+                executable_path=os.environ.get("CHROMIUM_PATH") or None)
+            page = browser.new_page(viewport={"width": 1440, "height": 900})
+            page.goto(f"{server}/p/{name}", wait_until="networkidle")
+            assert page.locator(".rail a").count() >= 4, "no index was built"
+            assert page.locator(".stage").is_hidden(), \
+                "the figures are standing where the index is"
+
+            page.set_viewport_size({"width": 1700, "height": 900})
+            page.wait_for_timeout(200)
+            assert page.locator(".stage").is_visible()
+            rail = page.locator(".rail").bounding_box()
+            box = page.locator(".stage-left").bounding_box()
+            assert box["x"] + box["width"] <= rail["x"] + 1, \
+                "the left figure runs under the index"
+            browser.close()
+    finally:
+        shutil.rmtree(projects.path_of(name), ignore_errors=True)

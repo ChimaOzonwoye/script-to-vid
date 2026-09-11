@@ -15,7 +15,7 @@
 }
 </style>
 </head>
-<body>
+<body class="app">
 {% include "_stage.html" %}
 <header class="appbar">
   <div class="appbar-in">
@@ -34,9 +34,14 @@
           {{ '' if has_video else 'hidden' }}>Video ready</span>
   </div>
 </header>
-<main>
+<main class="shell">
+  {# Built from the steps themselves rather than listed again here, so it
+     cannot drift out of step with them. #}
+  <nav class="rail" id="rail" aria-label="Steps" hidden></nav>
 
-  <section class="step">
+  <div class="steps">
+
+  <section class="step minor" id="project">
     <h2><span class="stepnum">1</span>Project</h2>
     <p class="hint">You are editing <strong>{{ name }}</strong>. Duplicating
     starts the next video with this one's look, logo and music.</p>
@@ -47,7 +52,7 @@
     </form>
   </section>
 
-  <section class="step">
+  <section class="step hero" id="script-step">
     <h2><span class="stepnum">2</span>Script</h2>
     <p class="hint">Paste your script: exactly the words you want spoken,
     and nothing else. Blank lines separate it into beats. Notes like
@@ -234,6 +239,8 @@
       </div>
     </div>
   </section>
+
+  </div>
 
   <div class="actionbar" id="actionbar" hidden>
     <div class="actionbar-in">
@@ -620,6 +627,60 @@ trackAudio.addEventListener("pause", stopAllTracks);
 trackAudio.addEventListener("ended", stopAllTracks);
 
 refreshSteps();
+
+/* ----------------------------------------------------------------------
+   The step index.
+
+   Built from the steps on the page rather than written out again, so it
+   cannot list a step that is not there or miss one that is. Each entry
+   mirrors the value chip its step already keeps up to date, which is why
+   the index can answer "what did I pick" without scrolling back.
+   ---------------------------------------------------------------------- */
+const rail = $("rail");
+const steps = [...document.querySelectorAll(".steps section.step")];
+
+steps.forEach((step, i) => {
+  if (!step.id) { step.id = "step-" + (i + 1); }
+  const head = step.querySelector("h2");
+  const num = head.querySelector(".stepnum");
+  const chip = head.querySelector(".stepval");
+  const name = [...head.childNodes]
+    .filter((n) => n.nodeType === 3).map((n) => n.textContent).join("").trim();
+
+  const a = document.createElement("a");
+  a.href = "#" + step.id;
+  a.innerHTML = '<span class="railnum"></span><span class="railname"></span>'
+              + '<span class="railval"></span>';
+  a.querySelector(".railnum").textContent = num ? num.textContent : i + 1;
+  a.querySelector(".railname").textContent = name;
+  rail.appendChild(a);
+
+  if (chip) {
+    const val = a.querySelector(".railval");
+    const copy = () => { val.textContent = chip.textContent.trim(); };
+    copy();
+    // the steps write to their own chips from half a dozen places, so watch
+    // the chip rather than trying to hook every one of them
+    new MutationObserver(copy).observe(chip, {
+      childList: true, characterData: true, subtree: true });
+  }
+});
+rail.hidden = steps.length === 0;
+
+/* The active entry is the last step whose top has passed under the bar, so
+   scrolling to the end of a long step does not jump the index ahead of it. */
+const links = [...rail.querySelectorAll("a")];
+function markStep() {
+  const line = (document.querySelector(".appbar")?.offsetHeight || 62) + 24;
+  let at = 0;
+  steps.forEach((step, i) => {
+    if (step.getBoundingClientRect().top <= line) { at = i; }
+  });
+  links.forEach((a, i) => a.classList.toggle("on", i === at));
+}
+markStep();
+addEventListener("scroll", markStep, { passive: true });
+addEventListener("resize", markStep);
 </script>
 </body>
 </html>

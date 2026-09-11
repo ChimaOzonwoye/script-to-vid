@@ -32,12 +32,37 @@
     <h2><span class="stepnum">1</span>Project</h2>
     <p class="hint">Each video is a project. Open one you made before, or start
     a new one.</p>
-    <ul class="projects">
+    {# The thumbnail is the finished video itself, one frame in, rather than
+       a picture of it kept somewhere: the file is already served and already
+       the right thing to show. A project with nothing rendered yet gets the
+       empty frame instead, which is the honest answer. #}
+    <ul class="gallery">
       {% for p in projects %}
-      <li>
-        <a href="/p/{{ p.name }}">{{ p.name }}</a>
-        <span class="pill {{ 'ready' if p.has_video else '' }}">{{
-          "video ready" if p.has_video else "no video yet" }}</span>
+      <li class="card">
+        <a href="/p/{{ p.name }}">
+          <span class="shot">
+            {# The empty frame is always in the markup and the video sits over
+               it, so a browser that will not decode the file shows the
+               placeholder rather than a black rectangle. Nothing to branch on
+               and nothing to go wrong if the decode fails silently. #}
+            <span class="shot-empty" aria-hidden="true">
+              <svg viewBox="0 0 48 30" focusable="false">
+                <rect x="1.5" y="1.5" width="45" height="27" rx="4"
+                      fill="none" stroke="currentColor" stroke-width="2"/>
+                <path d="M20 10.5 L29 15 L20 19.5 Z" fill="currentColor"/>
+              </svg>
+            </span>
+            {% if p.has_video %}
+            <video src="/files/{{ p.name }}/out/final.mp4"
+                   preload="metadata" muted playsinline tabindex="-1"></video>
+            {% endif %}
+          </span>
+          <span class="cardfoot">
+            <span class="cardname">{{ p.name }}</span>
+            <span class="pill {{ 'ready' if p.has_video else '' }}">{{
+              "ready" if p.has_video else "not made yet" }}</span>
+          </span>
+        </a>
       </li>
       {% endfor %}
     </ul>
@@ -82,5 +107,17 @@
     <strong>script to vid</strong> shortcut on your Desktop.
   </footer>
 </main>
+<script>
+/* A video element shows black until something has been decoded, and the
+   #t= fragment is not honoured reliably enough to depend on. Seeking a
+   little way in once the metadata lands gets a frame with the figure in
+   it rather than the fade the video opens on. */
+for (const v of document.querySelectorAll(".gallery video")) {
+  v.addEventListener("loadedmetadata", () => {
+    v.currentTime = Math.min(1.2, (v.duration || 2) / 2);
+  }, { once: true });
+  v.addEventListener("seeked", () => v.classList.add("shown"), { once: true });
+}
+</script>
 </body>
 </html>

@@ -122,12 +122,89 @@ body::before {
   z-index: 0;
 }
 
+/* One column of equal cards down the middle of a wide screen is the shape of
+   a form, whatever the cards are made of. The work column keeps its width;
+   an index of the steps sits beside it, so the page has somewhere to stand
+   and you can always see where you are in it. */
 main {
   position: relative;
   z-index: 1;
   max-width: 780px;
   margin: 0 auto;
   padding: var(--s4) var(--s4) 140px;
+}
+/* only the page that carries a step index is two columns */
+main.shell {
+  max-width: 1160px;
+  display: grid;
+  grid-template-columns: 236px minmax(0, 1fr);
+  gap: var(--s5);
+  align-items: start;
+}
+main > .steps { min-width: 0; }
+main > .steps > section.step:first-child { margin-top: 0; }
+
+/* one column until there is room for two, and the index goes with it */
+@media (max-width: 1100px) {
+  main.shell { display: block; max-width: 780px; }
+  .rail { display: none !important; }
+}
+
+/* ---------- the step index ---------- */
+
+.rail {
+  position: sticky;
+  top: calc(var(--barh, 62px) + var(--s4));
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.rail a {
+  display: grid;
+  grid-template-columns: 26px minmax(0, 1fr);
+  align-items: center;
+  gap: 11px;
+  padding: 9px 11px;
+  border-radius: var(--radius-sm);
+  color: var(--dim);
+  font-size: 14.5px;
+  line-height: 1.3;
+  text-decoration: none;
+  transition: background .18s, color .18s;
+}
+.rail a:hover { background: color-mix(in srgb, var(--ink) 5%, transparent);
+  color: var(--ink); text-decoration: none; }
+.rail .railnum {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px; height: 26px;
+  border-radius: 9px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--dim);
+  background: color-mix(in srgb, var(--ink) 7%, transparent);
+  transition: background .18s, color .18s, box-shadow .18s;
+}
+.rail .railname { font-weight: 600; color: inherit; }
+/* the value under the name, so the index answers "what did I choose" without
+   scrolling back to the step that holds it */
+.rail .railval {
+  grid-column: 2;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rail .railval:empty { display: none; }
+.rail a.on { background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.rail a.on .railname { color: var(--accent); }
+.rail a.on .railnum {
+  background: var(--accent);
+  color: #fff;
+  box-shadow: 0 2px 6px color-mix(in srgb, var(--accent) 40%, transparent);
 }
 
 /* ---------- the margins as a scene ---------- */
@@ -166,8 +243,8 @@ main {
 .stage-right { width: 100px; height: 133px; }
 /* clear of the 780px column at the width this turns on, and off the very
    edge of the screen so nobody reads them as cut off */
-.stage-left { left: max(28px, calc(50% - 560px)); }
-.stage-right { right: max(28px, calc(50% - 560px)); }
+.stage-left { left: max(28px, calc(50% - 720px)); }
+.stage-right { right: max(28px, calc(50% - 720px)); }
 
 .stage-lids circle {
   transform-box: fill-box;
@@ -182,6 +259,11 @@ main {
 
 @media (min-width: 1240px) {
   .stage { display: block; }
+}
+/* the page with a step index beside the column needs more of the screen
+   before there is a margin left to stand anybody in */
+@media (max-width: 1559px) {
+  body.app .stage { display: none; }
 }
 
 /* ---------- app bar ---------- */
@@ -292,13 +374,21 @@ main {
     0 -1px 0 color-mix(in srgb, var(--ink) 4%, transparent),
     0 -12px 30px -18px color-mix(in srgb, var(--ink) 34%, transparent);
 }
+/* The bar lines up with the work column, not with the whole shell, so the
+   word count sits under the step it counts and Generate under the card. */
 .actionbar-in {
-  max-width: 780px;
+  max-width: 1160px;
   margin: 0 auto;
   padding: 11px var(--s4);
   display: flex;
   align-items: center;
   gap: var(--s3);
+}
+@media (min-width: 1101px) {
+  .actionbar-in { padding-left: calc(var(--s4) + 236px + var(--s5)); }
+}
+@media (max-width: 1100px) {
+  .actionbar-in { max-width: 780px; }
 }
 .actionbar-info {
   color: var(--dim);
@@ -420,6 +510,18 @@ section.step {
 }
 section.step:hover { box-shadow: var(--lift-lg); }
 
+/* Seven cards of equal weight read as a questionnaire. They are not equal:
+   the script is the work and the rest are settings, so the script gets the
+   room and the duplicate control gets out of the way. */
+section.step.hero { padding: var(--s5) var(--s4) var(--s4); }
+section.step.hero > h2 { font-size: 34px; }
+section.step.hero > h2 + .hint { font-size: 15px; max-width: 66ch; }
+section.step.minor { padding: var(--s3) var(--s4) var(--s4); }
+section.step.minor > h2 { font-size: 20px; }
+section.step.minor > h2 .stepnum {
+  width: 26px; height: 26px; border-radius: 9px; font-size: 12.5px;
+}
+
 
 .stepnum {
   display: inline-flex;
@@ -540,6 +642,80 @@ form.row { display: flex; gap: 10px; margin-top: var(--s3); }
 form.row input { flex: 1; }
 
 /* ---------- project list ---------- */
+
+/* ---------- the project gallery ---------- */
+/* A list of names is a directory listing. What somebody actually recognises
+   is the video, so each project shows its own finished frame. */
+
+ul.gallery {
+  list-style: none;
+  padding: 0;
+  margin: var(--s3) 0 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(196px, 1fr));
+  gap: var(--s3);
+}
+.gallery .card a {
+  display: block;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  color: inherit;
+  text-decoration: none;
+  background: color-mix(in srgb, #fff 70%, var(--bg));
+  box-shadow:
+    0 0 0 1px var(--edge-soft),
+    0 2px 6px -2px color-mix(in srgb, var(--ink) 10%, transparent);
+  transition: box-shadow .2s, transform .2s;
+}
+.gallery .card a:hover {
+  text-decoration: none;
+  transform: translateY(-2px);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--accent) 40%, transparent),
+    0 12px 26px -10px color-mix(in srgb, var(--ink) 26%, transparent);
+}
+.gallery .shot {
+  position: relative;
+  display: block;
+  aspect-ratio: 16 / 9;
+  background: color-mix(in srgb, var(--ink) 7%, var(--bg));
+}
+.gallery .shot video {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  transition: opacity .25s;
+}
+.gallery .shot video.shown { opacity: 1; }
+.gallery .shot-empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  color: color-mix(in srgb, var(--ink) 26%, transparent);
+}
+.gallery .shot-empty svg { width: 44px; height: auto; }
+.gallery .cardfoot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s2);
+  padding: 11px 13px;
+}
+.gallery .cardname {
+  font-weight: 650;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
 ul.projects { list-style: none; padding: 0; margin: var(--s3) 0 0; }
 ul.projects li {
