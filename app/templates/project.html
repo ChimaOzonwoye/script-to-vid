@@ -155,6 +155,14 @@
           {% endfor %}
         </select>
       </label>
+      <label>Beside them
+        <select name="dressing">
+          <option value="">As the template ships ({{ dressings[themes[theme.name].dressing] }})</option>
+          {% for key, label in dressings.items() %}
+          <option value="{{ key }}" {{ 'selected' if key == dressing else '' }}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </label>
       <button type="submit" class="quiet small">Apply</button>
     </form>
   </section>

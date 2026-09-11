@@ -27,6 +27,7 @@ class Theme:
     ground: str = "plain"   # the pattern laid under every scene
     light: str = "flat"     # the gradient laid over the ground
     lettering: str = "plain"   # how headline type is treated
+    dressing: str = "none"     # one object standing beside the speaker
     blurb: str = ""         # one line describing the look, shown on the page
 
 
@@ -100,7 +101,7 @@ def mix(c1, c2, t):
 
 
 def _theme(name, label, bg, ink, a1, a2, ground="plain", light="flat",
-           lettering="plain", blurb="", **fixed):
+           lettering="plain", dressing="none", blurb="", **fixed):
     derived = dict(
         bg=bg, ink=ink, a1=a1, a2=a2,
         panel=mix(bg, ink, 0.04),
@@ -112,7 +113,8 @@ def _theme(name, label, bg, ink, a1, a2, ground="plain", light="flat",
     derived.update(fixed)
     derived["ui"] = _ui_accent(derived["a1"], derived["a2"], ink)
     return Theme(name=name, label=label, ground=ground, light=light,
-                 lettering=lettering, blurb=blurb, **derived)
+                 lettering=lettering, dressing=dressing, blurb=blurb,
+                 **derived)
 
 
 # Cream keeps the hand-picked values the engine shipped with. The blends
@@ -151,8 +153,16 @@ THEMES.update({
         blurb="Dark room, one panel behind the speaker, a pool of light."),
     "forest": _theme(
         "forest", "Deep forest", "#134339", "#f0f2e4", "#e8c46a", "#7cbd99",
-        ground="bars", light="vignette", lettering="halo",
-        blurb="Deep green, banded ground, the frame closing in."),
+        ground="bars", light="vignette", lettering="halo", dressing="plant",
+        blurb="Deep green, banded ground, a plant in the corner."),
+    "ledger": _theme(
+        "ledger", "Ledger", "#1d3a4d", "#f4f1e6", "#e0a33a", "#5aa9a0",
+        ground="stage", light="glow", lettering="drop", dressing="growth",
+        blurb="For money: a lit desk, a chart on the wall behind."),
+    "studio": _theme(
+        "studio", "Studio", "#f1e7d8", "#1a1712", "#c2603f", "#3f6f82",
+        ground="arch", light="warm", lettering="plain", dressing="board",
+        blurb="A warm room with a board on the wall, for teaching."),
 })
 
 DEFAULT_THEME = "cream"
@@ -170,8 +180,12 @@ LIGHT_LABELS = {"flat": "Even", "glow": "Warm pool", "vignette": "Closing in",
 LETTERING_LABELS = {"plain": "Plain", "halo": "Haloed", "drop": "Drop shadow",
                     "slab": "In a slab"}
 
+DRESSING_LABELS = {"none": "Nothing", "board": "A board on the wall",
+                   "growth": "A chart on the wall", "plant": "A plant",
+                   "flowers": "Flowers", "cat": "An animal"}
 
-def resolve(name, light=None, lettering=None):
+
+def resolve(name, light=None, lettering=None, dressing=None):
     """The template to render with, after any choices made on top of it."""
     T = THEMES.get(name, THEMES[DEFAULT_THEME])
     changes = {}
@@ -179,4 +193,6 @@ def resolve(name, light=None, lettering=None):
         changes["light"] = light
     if lettering in LETTERING_LABELS:
         changes["lettering"] = lettering
+    if dressing in DRESSING_LABELS:
+        changes["dressing"] = dressing
     return replace(T, **changes) if changes else T

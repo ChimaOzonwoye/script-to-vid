@@ -257,20 +257,23 @@ def test_putting_back_a_line_that_is_not_there_is_harmless(project):
 def test_the_look_controls_save_and_a_template_choice_clears_them(client, project):
     """Picking a template has to clear the overrides: the light and lettering
     it ships with are part of what was just chosen."""
-    client.post(f"/p/{project}/look", data={"light": "spot", "lettering": "slab"})
+    client.post(f"/p/{project}/look", data={
+        "light": "spot", "lettering": "slab", "dressing": "cat"})
     cfg = projects.settings(project)
-    assert (cfg["light"], cfg["lettering"]) == ("spot", "slab")
+    assert (cfg["light"], cfg["lettering"], cfg["dressing"]) == \
+        ("spot", "slab", "cat")
 
     client.post(f"/p/{project}/theme", data={"theme": "mustard"})
     cfg = projects.settings(project)
     assert cfg["theme"] == "mustard"
-    assert (cfg["light"], cfg["lettering"]) == ("", "")
+    assert (cfg["light"], cfg["lettering"], cfg["dressing"]) == ("", "", "")
 
 
 def test_a_made_up_look_is_dropped(client, project):
-    client.post(f"/p/{project}/look", data={"light": "disco", "lettering": "x"})
+    client.post(f"/p/{project}/look", data={
+        "light": "disco", "lettering": "x", "dressing": "dragon"})
     cfg = projects.settings(project)
-    assert (cfg["light"], cfg["lettering"]) == ("", "")
+    assert (cfg["light"], cfg["lettering"], cfg["dressing"]) == ("", "", "")
 
 
 def test_a_template_preview_is_drawn_once_and_reused(client, tmp_path,

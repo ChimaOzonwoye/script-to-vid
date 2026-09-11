@@ -111,3 +111,20 @@ def test_the_look_travels_on_the_theme_so_the_cache_covers_it():
     from app.themes import resolve
     a, b = resolve("cream"), resolve("cream", light="spot", lettering="slab")
     assert asdict(a) != asdict(b)
+
+
+def test_a_template_can_stand_something_beside_the_speaker():
+    """Rooms already exist, but a room is furniture across the whole frame and
+    is picked per beat. This is one object a template carries everywhere."""
+    from app.stagecraft import DRESSING
+    from app.themes import DRESSING_LABELS, resolve
+    assert set(DRESSING_LABELS) == set(DRESSING)
+    for T in THEMES.values():
+        assert T.dressing in DRESSING, (T.name, T.dressing)
+    assert resolve("cream", dressing="cat").dressing == "cat"
+    assert resolve("cream", dressing="dragon").dressing == "none"
+
+
+def test_nothing_stands_beside_the_speaker_in_the_quiet_family():
+    for name in ("cream", "paper", "sky", "mint"):
+        assert THEMES[name].dressing == "none"

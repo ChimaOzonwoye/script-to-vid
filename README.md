@@ -2,7 +2,7 @@
 
 Write a script. Get back a narrated video with visuals, subtitles, your logo
 and music. Characters blink and their mouths move in time with the narration.
-Nine templates decide how it looks, from a plain page to a dark room with a
+Eleven templates decide how it looks, from a plain page to a dark room with a
 spotlight. Finished videos can be joined into one. Runs on your own computer,
 free, no editing software.
 
@@ -104,9 +104,19 @@ The same palette under a spotlight is a different film, so the light is a
 choice of its own and can be moved onto any template. So can the lettering,
 which sets the words plain, haloed, with a drop shadow, or in a solid slab.
 
-Nine ship. Cream, Paper white, Sky and Mint are the quiet family: pale ground,
-even light. Mustard, Riso print, Coral, Slate and Deep forest each commit to a
-ground and a light as well, and two of them are dark.
+A template can also stand one thing beside the speaker: a board or a chart on
+the wall behind them, a plant, flowers, an animal. It goes in the corner on
+their side, because the headline runs most of the way to the other edge and
+anything tall enough to be worth drawing over there lands on the sentence.
+Rooms are a separate thing and still exist: a room is furniture across the
+whole frame that you pick per beat with `> scene:`, this is one object a
+template carries everywhere.
+
+Eleven ship. Cream, Paper white, Sky and Mint are the quiet family: pale
+ground, even light, nothing beside the speaker. Mustard, Riso print, Coral,
+Slate, Deep forest, Ledger and Studio each commit to a ground and a light too,
+and three of them are dark. Ledger is built for money: a lit desk and a chart
+on the wall behind. Studio has a board on the wall, for teaching something.
 
 The picker shows a real still of each one. A name and three colour dots cannot
 tell anyone that Coral has a sunburst behind the speaker, and a template is the
