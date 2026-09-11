@@ -1056,11 +1056,16 @@ video {
 
 /* ---------- footer ---------- */
 
+/* Centred and across the full width, not in the work column. Left aligned it
+   ran into the line the margin figures stand on, which fades out across the
+   middle third, so the middle is the one place this can sit without crossing
+   anything. */
 footer {
+  grid-column: 1 / -1;
   margin-top: var(--s5);
   padding-top: var(--s3);
   border-top: 1px solid var(--edge-soft);
   color: var(--dim);
   font-size: 13.5px;
+  text-align: center;
 }
-footer strong { color: var(--ink); font-weight: 600; }
