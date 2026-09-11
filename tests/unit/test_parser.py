@@ -143,6 +143,9 @@ def test_the_headline_never_ends_mid_phrase():
         "Set up a standing order for the day after your salary lands.",
         "This is a very long sentence with no punctuation at all that runs on",
         "Compound interest, the thing everyone mentions, is the force here.",
+        # a subject pronoun at the cut promises a verb that never comes
+        "Money left in a current account is money you have already spent.",
+        "They will tell you that it is complicated, and they are wrong.",
     ]
     for s in scripts:
         head = _auto_headline(s)

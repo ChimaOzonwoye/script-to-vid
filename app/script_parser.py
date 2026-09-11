@@ -165,7 +165,10 @@ _DANGLING = {"a", "an", "and", "as", "at", "but", "by", "for", "from", "in",
              "because", "unless", "though", "although", "if", "how", "what",
              "who", "which", "where", "why", "there", "here", "its", "their",
              "his", "her", "our", "my", "this", "these", "those", "every",
-             "each", "some", "any", "more", "most", "much", "many", "own"}
+             "each", "some", "any", "more", "most", "much", "many", "own",
+             # subject pronouns only. "it", "them" and "us" can end a phrase
+             # ("you will not notice it"); "you" and "they" promise a verb
+             "you", "we", "they", "he", "she", "i"}
 
 
 def _trim(words):

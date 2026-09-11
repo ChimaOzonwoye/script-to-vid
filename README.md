@@ -1,10 +1,11 @@
 # script to vid
 
-Write a script. Get back a narrated video with visuals, subtitles, your logo
-and music. Characters blink and their mouths move in time with the narration.
-Eleven templates decide how it looks, from a plain page to a dark room with a
-spotlight. Finished videos can be joined into one. Runs on your own computer,
-free, no editing software.
+Write a script. Get back a finished narrated video: voiceover, drawn visuals,
+subtitles, your logo and music. Eleven templates decide how it looks, from a
+plain page to a dark room with a spotlight.
+
+Runs on your own computer. Free, no account, no editing software, no limit on
+how much you make.
 
 ## Install
 
@@ -41,47 +42,75 @@ in that folder and run `./install.sh`. Same result, more steps.
 
 </details>
 
-![The page](docs/the-page.png)
+![Picking a template](docs/the-page.png)
+
+*The Look step. Every template shows a real still, and the light, the lettering
+and what stands beside the speaker can each be changed on any of them.*
 
 ![A still from a finished video](docs/a-still.png)
 
+*A frame from a finished video in the Ledger template.*
+
 ## Why this exists
 
-Explaining something well is not just a video. It is narration, visuals,
-captions, branding and an edit. Paying people for that costs money. AI video
-tools charge per render. If you have something worth explaining and no budget,
-that is usually where it ends.
+Explaining something well takes narration, visuals, captions, branding and an
+edit. Paying people for that costs money and AI video tools charge per render.
+If you have something worth explaining and no budget, that is usually where it
+ends.
 
-This does the whole production on your own computer for free, so money is not
-the reason it never gets made.
+This does the whole production on your own computer for free.
 
-This is a first step, not a finish line. It gets you making and publishing
-now, with what you already have. When you can afford better tools, use them.
-Not having the resources should not be the reason you never start.
+It is a first step, not a finish line. When you can afford better tools, use
+them. Not having the resources should not be the reason you never start.
 
 ## Why there is no AI video in this
 
 Generating video or images with a model needs a graphics card most computers
-do not have. Paying a service to do it instead costs money per video. Either
-way, the requirement is the thing that stops people.
+do not have, and paying a service to do it costs money per video. Either way
+the requirement is the thing that stops people.
 
-So this draws everything from code. It runs on an ordinary laptop, it costs
-nothing, and it never gets slower or more expensive the more you make.
+So everything is drawn from code with matplotlib. It runs on an ordinary
+laptop, costs nothing, and never gets slower or more expensive the more you
+make. It also means every frame is reproducible: the same script and the same
+settings give the same video, which is what makes the cache safe.
+
+## How it works
+
+Six stages, each cached separately, so a change only redoes what it touched.
+
+1. **Parse.** The script becomes a list of beats. A blank line ends a beat.
+   `#` starts a chapter, `>` is a visual direction, everything else is
+   narration. Beats carry content only and never line numbers, so editing
+   higher up the script does not invalidate anything below it.
+2. **Voice.** Each beat's line is sent to edge-tts and cached under a hash of
+   the text, the voice and the speed. Changing the look never touches this.
+3. **Slides.** Each beat is drawn to a PNG at 1920x1080. A beat with a
+   speaking figure is drawn several times, once per mouth and eye position.
+4. **Segments.** One MP4 per beat: the slide, a slow zoom, fades to the page
+   colour, the narration, and the mouth positions cut to the audio. Cached
+   under a hash of the beat, the template and the audio.
+5. **Parts.** Segments are concatenated into chunks of about two and a half
+   minutes and each chunk gets one encode with the logo and the music. Parts
+   are cached too, so an interrupted render resumes.
+6. **Final.** The parts are stream copied together and the subtitle file is
+   written.
+
+Nothing leaves your machine except the edge-tts requests. The web app binds to
+127.0.0.1 and there is no account, no database and no server to run.
 
 ## Use
 
-Your first project opens with a short example script already in it. Press
+Your first project opens with an example script already in it. Press
 **Generate** and watch a real video come out before you write anything of your
 own.
 
-After that: write your script, choose a voice, pick a look, add a logo and
+After that: write your script, choose a voice, pick a template, add a logo and
 music if you want them, then Generate. Download the MP4 and the subtitle file
 when it finishes. Each video is a project, and duplicating one starts the next
-week's video with the same settings.
+video with the same settings.
 
-Twelve narration voices are included across American, British, Australian,
-Indian and Nigerian accents, and you can hear each one before you choose. The
-speed has three settings.
+Twelve voices are included, across American, British, Australian, Indian and
+Nigerian accents, and you can hear each one before you choose. Three speeds.
 
 Re-running is cheap. Editing one line only remakes that line. Changing the
 look reuses the whole voiceover. Changing the voice remakes the narration and
@@ -95,7 +124,7 @@ it again picks up where it stopped rather than going back to the beginning.
 
 A template is three things: a ground, a light and a palette. Colours alone
 were not enough. Four palettes on the same pale page gave four videos that
-were the same video in different colours, and a look is not a set of colours.
+were the same video in four colours.
 
 The ground is the flat pattern under every scene: a solid floor, a panel
 behind the speaker, a halftone field, a sunburst, wide bands. The light is the
@@ -133,24 +162,28 @@ video made with one is safe to monetise.
 ## What a beat looks like
 
 A paragraph with no direction on it is drawn as a presenter: one figure held
-in the same place, with a line from your script beside them. The words beside
-them change and the side swaps at a chapter, which reads as a cut to the other
+in the same place, with a headline from your script beside them. The headline
+changes and the side swaps at a chapter, which reads as a cut to the other
 camera.
 
-It used to rotate through four layouts and move the figure every beat. That is
-what made a run of ordinary paragraphs read as a slideshow rather than as
-somebody talking to you. All the other layouts are still there and are reached
-by naming them in a direction.
+It used to rotate four layouts and move the figure every beat, which made a
+run of ordinary paragraphs read as a slideshow. The other layouts are still
+there and are reached by naming them in a direction.
+
+The headline is the first sentence of the beat when it is short enough,
+otherwise the first comma clause, otherwise a word count with trailing
+function words dropped. A fixed cut alone lands on "TAKE THE MONEY OUT
+BEFORE" and leaves the reader waiting out the beat for an object that never
+arrives.
 
 ## Joining videos
 
 **Join videos** on the front page puts finished videos together into one, in
 whatever order you tick them.
 
-It is there for two reasons. A long script can be made as two or three
-projects and joined at the end, which is useful if you would rather work in
-sittings than wait for one long render. And a joiner is useful on its own, so
-it takes video files from anywhere, not just ones made here.
+Two reasons. A long script can be made as two or three projects and joined at
+the end, if you would rather work in sittings than wait for one render. And a
+joiner is useful on its own, so it takes video files from anywhere.
 
 Videos made by this app are never re-encoded, because they already share one
 shape, so joining them takes seconds however long they are. A video from
@@ -207,6 +240,63 @@ Anything the parser does not recognise becomes narration, never an error.
 you get if you never ask.
 
 The example a new project opens with is in `example-script.txt`.
+
+## Decisions worth knowing about
+
+**Everything is cached on content, never on position.** A beat carries what it
+says and how it looks, not where it sits in the script. Insert a paragraph at
+the top and nothing below it rebuilds. This is also why the same script always
+gives the same video.
+
+**One music bed for the whole video, sliced across the parts.** A bed built
+per part fades down at the end of one and up at the start of the next, which
+measures as a hole about a second and a half wide at every join: the mix drops
+to 18 where the unsplit render sits at 224. There is one bed and each part
+reads its own stretch of it.
+
+**Parts are cut between beats and nowhere else.** A beat is a paragraph, so a
+part can only end where the script had a blank line and the video already cut.
+A part cannot end part-way through a sentence and rejoining is a stream copy.
+
+**The app page does not follow a dark template.** It borrows the template's
+hue and not its lightness. A dark app was never designed, and a template that
+took the whole app dark with it would have been a worse surprise than a page
+that stays pale.
+
+**The interface is not a form.** One column of equal cards down the middle of
+a wide screen is the shape of a form whatever the cards are made of, so the
+work column has an index of the steps beside it and the script step gets more
+room than the settings. Three passes at the card edges and surfaces did not
+fix it, because the problem was never the edges.
+
+**No trademarked characters, logos or brand marks in any template.** Reference
+material for this kind of video is full of them. Copying one would hand a
+claim over somebody's video to a company that had nothing to do with it.
+
+**No YouTube downloader.** It would breach the terms of service and put
+Content ID claims on videos people are trying to monetise, which is the
+opposite of the point.
+
+## Where this is
+
+Working and tested: the parser, the voiceover and its cache, all the scene
+layouts, the eleven templates with their grounds, lights, lettering and side
+objects, the logo and music, subtitles, the part renderer and its resume, the
+joiner, the installers for Windows and Mac, and the web app. 474 tests across
+unit, integration and end to end, with a real render in the integration ones.
+
+Known gaps:
+
+- The joiner re-encodes a video that did not come from here, which takes
+  minutes rather than seconds. It says so before it starts.
+- There is no way to preview a single beat. The template picker draws a still,
+  but your own script does not appear until you render it.
+- Audio drifts against picture by about four milliseconds per part join,
+  because an aac frame is 1024 samples and the stream has to end on one. A
+  frame of video is thirty-three milliseconds, so this is well under one
+  frame, but it does accumulate with the number of parts.
+- Side objects sit in shadow under a spotlight, which is coherent but means
+  Slate hides anything you put beside the speaker.
 
 ## Licence
 
