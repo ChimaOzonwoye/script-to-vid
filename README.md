@@ -2,8 +2,9 @@
 
 Write a script. Get back a narrated video with visuals, subtitles, your logo
 and music. Characters blink and their mouths move in time with the narration.
-Finished videos can be joined into one, so a long script can be made in parts.
-Runs on your own computer, free, no editing software.
+Nine templates decide how it looks, from a plain page to a dark room with a
+spotlight. Finished videos can be joined into one. Runs on your own computer,
+free, no editing software.
 
 ## Install
 
@@ -86,15 +87,60 @@ Re-running is cheap. Editing one line only remakes that line. Changing the
 look reuses the whole voiceover. Changing the voice remakes the narration and
 nothing else.
 
+A long video is encoded in parts of a couple of minutes each, and finished
+parts are kept. If a render is interrupted, or the computer gives up, starting
+it again picks up where it stopped rather than going back to the beginning.
+
+## Templates
+
+A template is three things: a ground, a light and a palette. Colours alone
+were not enough. Four palettes on the same pale page gave four videos that
+were the same video in different colours, and a look is not a set of colours.
+
+The ground is the flat pattern under every scene: a solid floor, a panel
+behind the speaker, a halftone field, a sunburst, wide bands. The light is the
+wash over it: even, a warm pool, a vignette, light from above, a spotlight.
+The same palette under a spotlight is a different film, so the light is a
+choice of its own and can be moved onto any template. So can the lettering,
+which sets the words plain, haloed, with a drop shadow, or in a solid slab.
+
+Nine ship. Cream, Paper white, Sky and Mint are the quiet family: pale ground,
+even light. Mustard, Riso print, Coral, Slate and Deep forest each commit to a
+ground and a light as well, and two of them are dark.
+
+The picker shows a real still of each one. A name and three colour dots cannot
+tell anyone that Coral has a sunburst behind the speaker, and a template is the
+one setting nobody can judge without seeing it. The stills are drawn the first
+time you open that step and kept, so it happens once.
+
+Picking a dark template does not take the app dark with it. The page borrows
+the template's hue and not its lightness, because a dark app was never the
+design.
+
+Nothing in any template uses a trademarked character, logo or brand mark, so a
+video made with one is safe to monetise.
+
+## What a beat looks like
+
+A paragraph with no direction on it is drawn as a presenter: one figure held
+in the same place, with a line from your script beside them. The words beside
+them change and the side swaps at a chapter, which reads as a cut to the other
+camera.
+
+It used to rotate through four layouts and move the figure every beat. That is
+what made a run of ordinary paragraphs read as a slideshow rather than as
+somebody talking to you. All the other layouts are still there and are reached
+by naming them in a direction.
+
 ## Joining videos
 
 **Join videos** on the front page puts finished videos together into one, in
 whatever order you tick them.
 
-It is there for two reasons. A long script may be more than a given computer
-can render in one sitting, so make it as two or three projects and join the
-parts at the end. And a joiner is useful on its own, so it takes video files
-from anywhere, not just ones made here.
+It is there for two reasons. A long script can be made as two or three
+projects and joined at the end, which is useful if you would rather work in
+sittings than wait for one long render. And a joiner is useful on its own, so
+it takes video files from anywhere, not just ones made here.
 
 Videos made by this app are never re-encoded, because they already share one
 shape, so joining them takes seconds however long they are. A video from
