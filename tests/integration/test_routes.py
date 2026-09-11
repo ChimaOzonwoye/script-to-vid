@@ -252,3 +252,48 @@ def test_putting_back_a_line_that_is_not_there_is_harmless(project):
                           "keep": True}).json()
     assert a["kept"] == []
     assert client.post(f"/p/{project}/keep", json={"text": "  "}).status_code == 400
+
+
+def test_the_look_controls_save_and_a_template_choice_clears_them(client, project):
+    """Picking a template has to clear the overrides: the light and lettering
+    it ships with are part of what was just chosen."""
+    client.post(f"/p/{project}/look", data={"light": "spot", "lettering": "slab"})
+    cfg = projects.settings(project)
+    assert (cfg["light"], cfg["lettering"]) == ("spot", "slab")
+
+    client.post(f"/p/{project}/theme", data={"theme": "mustard"})
+    cfg = projects.settings(project)
+    assert cfg["theme"] == "mustard"
+    assert (cfg["light"], cfg["lettering"]) == ("", "")
+
+
+def test_a_made_up_look_is_dropped(client, project):
+    client.post(f"/p/{project}/look", data={"light": "disco", "lettering": "x"})
+    cfg = projects.settings(project)
+    assert (cfg["light"], cfg["lettering"]) == ("", "")
+
+
+def test_a_template_preview_is_drawn_once_and_reused(client, tmp_path,
+                                                     monkeypatch):
+    """A template is the one setting nobody can judge from a name and three
+    colour dots, so the picker shows a real still. Drawing one costs about a
+    second, so it has to be cached, and keyed on the template itself rather
+    than on its name: a change to a ground has to show without anything to
+    invalidate by hand."""
+    from app import main
+    monkeypatch.setattr(main, "PREVIEW_DIR", tmp_path / "previews")
+    assert client.get("/template/coral.png").status_code == 200
+    made = sorted((tmp_path / "previews").glob("*.png"))
+    assert len(made) == 1
+    stamp = made[0].stat().st_mtime_ns
+
+    assert client.get("/template/coral.png").status_code == 200
+    assert made[0].stat().st_mtime_ns == stamp, "drew it a second time"
+
+    # a different light is a different template and a different file
+    assert client.get("/template/coral.png?light=spot").status_code == 200
+    assert len(sorted((tmp_path / "previews").glob("*.png"))) == 2
+
+
+def test_an_unknown_template_preview_is_not_found(client):
+    assert client.get("/template/nope.png").status_code == 404

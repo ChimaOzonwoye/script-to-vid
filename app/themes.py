@@ -5,7 +5,7 @@ character shirts, the web page, and the fade colour all read from the same
 object, so nothing mixes colours at draw time.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 
 @dataclass(frozen=True)
@@ -24,6 +24,10 @@ class Theme:
     a2_hi: str
     a2_pale: str
     ui: str        # accent for solid controls, dark enough for white text
+    ground: str = "plain"   # the pattern laid under every scene
+    light: str = "flat"     # the gradient laid over the ground
+    lettering: str = "plain"   # how headline type is treated
+    blurb: str = ""         # one line describing the look, shown on the page
 
 
 def _luminance(c):
@@ -52,6 +56,42 @@ def _ui_accent(a1, a2, ink):
     return ink
 
 
+PAGE_INK = "#1b1a17"
+
+
+def _readable(c, ink, floor=3.0):
+    """Deepen a colour until it can be read on a near-white page."""
+    for step in range(0, 21):
+        candidate = mix(c, ink, step / 20)
+        if contrast_on_white(candidate) >= floor:
+            return candidate
+    return ink
+
+
+def page_palette(T):
+    """The app page for a template: its own colours when they suit a page.
+
+    Taking the template's colours straight is a nice piece of feedback, and
+    while every template was pale it was also safe. A template built on a dark
+    ground would have taken the whole app dark with it, and a dark app was
+    never designed. So a pale template still hands its palette over unchanged,
+    and a dark one lends its hue to a light page instead of its lightness.
+    """
+    if _luminance(T.bg) > 0.55:
+        return {"bg": T.bg, "panel": T.panel, "ink": T.ink, "dim": T.dim,
+                "grid": T.grid, "accent": T.ui, "accent2": T.a1,
+                "accent_pale": T.a2_pale, "accent2_pale": T.a1_pale}
+
+    ink, bg = PAGE_INK, mix("#ffffff", T.a1, 0.10)
+    a1, a2 = _readable(T.a1, ink), _readable(T.a2, ink)
+    return {
+        "bg": bg, "panel": mix(bg, ink, 0.045), "ink": ink,
+        "dim": mix(ink, bg, 0.42), "grid": mix(ink, bg, 0.86),
+        "accent": _ui_accent(a1, a2, ink), "accent2": a1,
+        "accent_pale": mix(a2, bg, 0.74), "accent2_pale": mix(a1, bg, 0.74),
+    }
+
+
 def mix(c1, c2, t):
     """Linear blend of two hex colours, `t` of the way from c1 to c2."""
     a = [int(c1[i:i + 2], 16) for i in (1, 3, 5)]
@@ -59,7 +99,8 @@ def mix(c1, c2, t):
     return "#" + "".join(f"{round(x + (y - x) * t):02x}" for x, y in zip(a, b))
 
 
-def _theme(name, label, bg, ink, a1, a2, **fixed):
+def _theme(name, label, bg, ink, a1, a2, ground="plain", light="flat",
+           lettering="plain", blurb="", **fixed):
     derived = dict(
         bg=bg, ink=ink, a1=a1, a2=a2,
         panel=mix(bg, ink, 0.04),
@@ -70,7 +111,8 @@ def _theme(name, label, bg, ink, a1, a2, **fixed):
     )
     derived.update(fixed)
     derived["ui"] = _ui_accent(derived["a1"], derived["a2"], ink)
-    return Theme(name=name, label=label, **derived)
+    return Theme(name=name, label=label, ground=ground, light=light,
+                 lettering=lettering, blurb=blurb, **derived)
 
 
 # Cream keeps the hand-picked values the engine shipped with. The blends
@@ -85,4 +127,56 @@ THEMES = {
     "mint":  _theme("mint", "Mint", "#f0f7f2", "#14231a", "#059669", "#d97706"),
 }
 
+# The four above are the quiet family the tool shipped with: pale ground, even
+# light, the palette doing all the work. The five below are what a template is
+# for. Each one commits to a ground and a light as well as a palette, because
+# a look is not a set of colours: the same four colours flat on a page and the
+# same four on a lit stage are two different films.
+THEMES.update({
+    "mustard": _theme(
+        "mustard", "Mustard", "#e6b23c", "#17140d", "#d0472a", "#0e6b60",
+        ground="stage", light="glow", lettering="slab",
+        blurb="Saturated yellow, a solid floor, warm light on the speaker."),
+    "riso": _theme(
+        "riso", "Riso print", "#f2ece0", "#16120e", "#d8443a", "#2a4fbf",
+        ground="dots", light="flat", lettering="drop",
+        blurb="Two ink colours on paper stock, flat and printed."),
+    "coral": _theme(
+        "coral", "Coral", "#ef8f6c", "#2a1410", "#f3cd68", "#1a6b74",
+        ground="rays", light="warm", lettering="halo",
+        blurb="Warm ground, a sunburst behind the speaker, light from above."),
+    "slate": _theme(
+        "slate", "Slate", "#212c3a", "#f1eee4", "#efa531", "#4fb3a5",
+        ground="arch", light="spot", lettering="drop",
+        blurb="Dark room, one panel behind the speaker, a pool of light."),
+    "forest": _theme(
+        "forest", "Deep forest", "#134339", "#f0f2e4", "#e8c46a", "#7cbd99",
+        ground="bars", light="vignette", lettering="halo",
+        blurb="Deep green, banded ground, the frame closing in."),
+})
+
 DEFAULT_THEME = "cream"
+
+
+# Light and lettering ship as part of a template but are not locked to it. A
+# template is a starting point, and the two axes most worth moving on their own
+# are how the frame is lit and how the type is set: the same palette under a
+# spotlight is a different film, and the same film with the words in a slab is
+# a different channel. Ground stays with the template, because a ground and a
+# palette are chosen together or they fight.
+LIGHT_LABELS = {"flat": "Even", "glow": "Warm pool", "vignette": "Closing in",
+                "warm": "From above", "spot": "Spotlight"}
+
+LETTERING_LABELS = {"plain": "Plain", "halo": "Haloed", "drop": "Drop shadow",
+                    "slab": "In a slab"}
+
+
+def resolve(name, light=None, lettering=None):
+    """The template to render with, after any choices made on top of it."""
+    T = THEMES.get(name, THEMES[DEFAULT_THEME])
+    changes = {}
+    if light in LIGHT_LABELS:
+        changes["light"] = light
+    if lettering in LETTERING_LABELS:
+        changes["lettering"] = lettering
+    return replace(T, **changes) if changes else T

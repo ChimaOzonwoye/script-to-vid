@@ -39,6 +39,7 @@ from matplotlib.colors import to_rgb
 from PIL import Image
 
 from . import animate
+from . import stagecraft
 from .themes import mix
 from .voices import DEFAULT_VOICE as VOICE, DEFAULT_RATE as RATE
 W, H = 1920, 1080
@@ -60,7 +61,7 @@ TTS_PARALLEL = 4            # how many voice requests to run at once
 
 WPM = 155                   # matches the default voice at the default rate
 
-ENGINE_V = "3"              # bump to invalidate every cached segment
+ENGINE_V = "4"              # bump to invalidate every cached segment
 
 
 class RenderError(Exception):
@@ -86,6 +87,10 @@ def _headline(fig, T, text, y=0.87, size=58, color=None):
     w = t.get_window_extent(fig.canvas.get_renderer()).width
     if w > HEAD_MAX_W:
         t.set_fontsize(max(28, size * HEAD_MAX_W / w))
+    # a slide headline is given the treatment only when the caller passed no
+    # colour of its own, because a coloured headline is already the accent
+    if color is None:
+        stagecraft.letter(t, T)
     return t
 
 
@@ -632,6 +637,121 @@ def segment_key(beat, theme, audio_key):
     return hashlib.sha1(ident.encode()).hexdigest()
 
 
+PART_SECONDS = 150.0        # target length of one final-encode chunk
+PART_FLOOR = 25.0           # shorter than this and the tail joins the part before
+
+
+def part_ranges(seconds, target=None, floor=None):
+    """Group beat durations into chunks of roughly `target` seconds.
+
+    The final encode used to be one pass over the whole video, which is the
+    longest single piece of work in a render and the one that has nothing
+    finished to show if the machine gives up in the middle of it. Cutting it
+    into parts caps that, and makes a second run resume rather than restart.
+
+    Cuts land between beats and nowhere else, so a part can only end where the
+    script had a paragraph break and the video already cut. A part cannot end
+    part-way through a sentence, and rejoining is a stream copy across a seam
+    that was there anyway. A short tail is folded back into the part before it
+    rather than left as a two-second file.
+    """
+    target = PART_SECONDS if target is None else target
+    floor = PART_FLOOR if floor is None else floor
+    out, start, run = [], 0, 0.0
+    for i, d in enumerate(seconds):
+        run += d
+        if run >= target and i + 1 < len(seconds):
+            out.append((start, i + 1))
+            start, run = i + 1, 0.0
+    if start < len(seconds):
+        out.append((start, len(seconds)))
+    if len(out) > 1 and sum(seconds[out[-1][0]:]) < floor:
+        out[-2:] = [(out[-2][0], out[-1][1])]
+    return out
+
+
+def _stamp(path):
+    if not path or not path.exists():
+        return "-"
+    st = path.stat()
+    return f"{st.st_size}:{int(st.st_mtime)}"
+
+
+def part_key(seg_keys, logo, music, bed_at, first, last):
+    """Everything the part's encode depends on, including where in the music
+    bed it starts, so an edit that shifts a part along the track rebuilds it."""
+    raw = json.dumps([ENGINE_V, list(seg_keys), _stamp(logo), _stamp(music),
+                      round(bed_at, 2), first, last])
+    return hashlib.sha1(raw.encode()).hexdigest()
+
+
+def encode_part(dst, segs, work, logo, logo_until, bed, bed_at, length,
+                fade_in, fade_out):
+    """Compress one run of segments, with the corner logo and the slice of the
+    music bed that belongs under it.
+
+    The music fades up at the start of the video and down at the end of it, not
+    at the end of every part: fading each part would put a hole in the track at
+    every join. Everything in between reads its own stretch of one bed, so the
+    music runs through the seam unbroken.
+    """
+    # The picture lands frame-exact across a join: parts of 17.633 and 25.500
+    # seconds concatenate to the same 43.133 the unsplit render produces. The
+    # audio ends a few milliseconds long on each part, because an aac frame is
+    # 1024 samples and the stream has to end on one, so a join shifts sound
+    # against picture by about four milliseconds. A frame is thirty-three.
+    lst = work / "part.txt"
+    lst.write_text("".join(f"file '{s.resolve()}'\n" for s in segs))
+    joined = work / "part_joined.mkv"
+    run(["ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", str(lst),
+         "-c", "copy", str(joined)])
+
+    inputs, filters, n = ["-i", str(joined)], [], 1
+    vout = "0:v"
+    if logo:
+        inputs += ["-i", str(logo)]
+        # the corner logo is hidden once the outro fills the frame with the big
+        # one, and the outro time is measured from the start of this part
+        show = (f":enable='lt(t,{logo_until:.3f})'"
+                if logo_until is not None else "")
+        filters.append(f"[{vout}][{n}:v]"
+                       f"overlay=W-w-{LOGO_MARGIN_PX}:{LOGO_MARGIN_PX}{show}[v]")
+        vout, n = "v", n + 1
+
+    aout = "0:a"
+    if bed:
+        inputs += ["-ss", f"{bed_at:.3f}", "-t", f"{length:.3f}", "-i", str(bed)]
+        fades = ["afade=t=in:st=0:d=2"] if fade_in else []
+        if fade_out:
+            fades.append(f"afade=t=out:st={max(length - 3, 0):.3f}:d=3")
+        shape = "," + ",".join(fades) if fades else ""
+        # The voice is used twice: once in the mix, once as the control signal
+        # that pushes the music down. That is what sidechaincompress does, so
+        # the bed lifts in the gaps between lines and drops under speech.
+        filters.append(
+            f"[{n}:a]volume={MUSIC_DB}dB{shape}[m];"
+            f"[0:a]asplit=2[voice][key];"
+            f"[m][key]sidechaincompress=threshold={DUCK_THRESHOLD}"
+            f":ratio={DUCK_RATIO}:attack=15:release={DUCK_RELEASE}[duck];"
+            f"[voice][duck]amix=inputs=2:duration=first"
+            f":dropout_transition=0:normalize=0[a]")
+        aout = "a"
+
+    cmd = ["ffmpeg", "-y", *inputs]
+    if filters:
+        cmd += ["-filter_complex", ";".join(filters)]
+    tmp = work / "part_tmp.mp4"
+    cmd += ["-map", f"[{vout}]" if vout != "0:v" else vout,
+            "-map", f"[{aout}]" if aout != "0:a" else aout,
+            "-c:v", "libx264", "-preset", "medium", "-crf", "20",
+            "-pix_fmt", "yuv420p", "-r", str(FPS),
+            "-c:a", "aac", "-b:a", "192k", "-ar", "48000",
+            "-shortest", str(tmp)]
+    run(cmd)
+    joined.unlink(missing_ok=True)
+    shutil.move(str(tmp), dst)
+
+
 def plan(project, beats, theme, voice=VOICE, rate=RATE):
     """What a render would reuse, so the page can say it before Generate."""
     project = Path(project)
@@ -766,9 +886,7 @@ def render_video(project, beats, theme, voice=VOICE, rate=RATE, progress=None):
              "-t", f"{d:.3f}", str(tmp)])
         shutil.move(str(tmp), segs[i])
     report("segments", len(missing), len(missing))
-
-    report("final", 0, 1)
-    clock, srt = 0.0, []
+    clock, srt, seconds = 0.0, [], []
     outro_start = None
     for b, snd in zip(beats, paths):
         spoken = duration(snd)
@@ -776,60 +894,53 @@ def render_video(project, beats, theme, voice=VOICE, rate=RATE, progress=None):
         if b["visual"] == "outro":
             outro_start = clock
         srt.append((clock + LEAD_SILENCE, clock + LEAD_SILENCE + spoken, b["say"]))
+        seconds.append(d)
         clock += d
 
-    lst = work / "concat.txt"
-    lst.write_text("".join(f"file '{s.resolve()}'\n" for s in segs))
-    joined = work / "joined.mkv"
-    run(["ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", str(lst),
-         "-c", "copy", str(joined)])
+    ranges = part_ranges(seconds)
+    report("final", 0, len(ranges))
+
+    # One bed for the whole video, sliced per part, so the music carries across
+    # a join instead of restarting. Building it once also keeps the loop and
+    # crossfade cost the same as it was before parts existed.
+    bed = (build_music_bed(music, work / "bed.wav", clock + 2, work)
+           if music.exists() else None)
+
+    pdir = cache / "parts"
+    pdir.mkdir(parents=True, exist_ok=True)
+    made, offset = [], 0.0
+    for pi, (a, b) in enumerate(ranges):
+        length, last = sum(seconds[a:b]), b == len(beats)
+        key = part_key(seg_keys[a:b], logo, music, offset,
+                       first=pi == 0, last=last)
+        dst = pdir / f"{key}.mp4"
+        if not dst.exists():
+            encode_part(dst, segs[a:b], work,
+                        logo=work / "logo_small.png" if logo.exists() else None,
+                        logo_until=None if outro_start is None
+                        else outro_start - offset,
+                        bed=bed, bed_at=offset, length=length,
+                        fade_in=pi == 0, fade_out=last)
+        made.append(dst)
+        offset += length
+        report("final", pi + 1, len(ranges))
 
     final = out_dir / "final.mp4"
-    inputs = ["-i", str(joined)]
-    filters = []
-    vin = "[0:v]"
-    n = 1
-
-    if logo.exists():
-        inputs += ["-i", str(work / "logo_small.png")]
-        # corner logo for the whole video except the outro, where the big one is
-        show = f":enable='lt(t,{outro_start:.3f})'" if outro_start is not None else ""
-        filters.append(f"{vin}[{n}:v]overlay=W-w-{LOGO_MARGIN_PX}:{LOGO_MARGIN_PX}{show}[v]")
-        vin = "[v]"
-        n += 1
-
-    if music.exists():
-        bed = build_music_bed(music, work / "bed.wav", clock + 2, work)
-        inputs += ["-i", str(bed)]
-        # The voice is used twice: once in the mix, once as the control signal
-        # that pushes the music down. That is what sidechaincompress does, so
-        # the bed lifts in the gaps between lines and drops under speech.
-        filters.append(
-            f"[{n}:a]volume={MUSIC_DB}dB,"
-            f"afade=t=in:st=0:d=2,afade=t=out:st={clock - 3:.3f}:d=3[m];"
-            f"[0:a]asplit=2[voice][key];"
-            f"[m][key]sidechaincompress=threshold={DUCK_THRESHOLD}"
-            f":ratio={DUCK_RATIO}:attack=15:release={DUCK_RELEASE}[duck];"
-            f"[voice][duck]amix=inputs=2:duration=first"
-            f":dropout_transition=0:normalize=0[a]")
-        aout = "[a]"
+    if len(made) == 1:
+        shutil.copy(made[0], final)
     else:
-        aout = "0:a"
-
-    cmd = ["ffmpeg", "-y", *inputs]
-    if filters:
-        cmd += ["-filter_complex", ";".join(filters)]
-    cmd += ["-map", vin if filters and logo.exists() else "0:v", "-map", aout,
-            "-c:v", "libx264", "-preset", "medium", "-crf", "20",
-            "-pix_fmt", "yuv420p", "-r", str(FPS),
-            "-c:a", "aac", "-b:a", "192k", "-ar", "48000",
-            "-movflags", "+faststart", "-shortest", str(final)]
-    run(cmd)
+        # The parts were cut between beats and encoded to one profile, so the
+        # join is a stream copy: no second generation of compression, and no
+        # seam beyond the one the beat boundary already had.
+        lst = work / "parts.txt"
+        lst.write_text("".join(f"file '{s.resolve()}'\n" for s in made))
+        run(["ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", str(lst),
+             "-c", "copy", "-movflags", "+faststart", str(final)])
 
     with open(out_dir / "final.srt", "w") as f:
         for k, (a, bb, txt) in enumerate(srt, 1):
             body = "\n".join(textwrap.wrap(txt, 52))
             f.write(f"{k}\n{srt_time(a)} --> {srt_time(bb)}\n{body}\n\n")
 
-    report("final", 1, 1)
-    return {"video": final, "srt": out_dir / "final.srt", "seconds": clock}
+    return {"video": final, "srt": out_dir / "final.srt", "seconds": clock,
+            "parts": len(made)}

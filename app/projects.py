@@ -19,9 +19,12 @@ MERGES_DIR = ROOT / "merges"
 EXAMPLE_SCRIPT = ROOT / "example-script.txt"
 
 # "keep" holds the exact text of lines the user put back from the review
-# panel, so the choice survives a reload
+# panel, so the choice survives a reload. "light" and "lettering" stay empty
+# until the user moves them off what the template ships with, so a template
+# whose look is later revised carries the revision into every project that
+# never overrode it.
 DEFAULTS = {"theme": DEFAULT_THEME, "voice": DEFAULT_VOICE,
-            "rate": DEFAULT_RATE, "keep": []}
+            "rate": DEFAULT_RATE, "keep": [], "light": "", "lettering": ""}
 
 
 def slugify(name):
@@ -84,6 +87,8 @@ def settings(name):
     cfg["rate"] = valid_rate(cfg.get("rate"))
     kept = cfg.get("keep")
     cfg["keep"] = [k for k in kept if isinstance(k, str)] if isinstance(kept, list) else []
+    for field in ("light", "lettering"):
+        cfg[field] = cfg[field] if isinstance(cfg.get(field), str) else ""
     return cfg
 
 

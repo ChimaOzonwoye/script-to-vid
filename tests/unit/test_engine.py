@@ -59,6 +59,7 @@ def test_every_slide_visual_renders(tmp_path):
 def test_every_scene_visual_renders(tmp_path):
     from app import scenes
     beats = {
+        "scene_presenter": {"caption": "Words beside them", "side": "left"},
         "scene_character": {"expr": "happy", "pose": "cheer", "prop": "piggy",
                             "caption": "Cap"},
         "scene_caption": {"caption": "Big caption"},
@@ -73,3 +74,36 @@ def test_every_scene_visual_renders(tmp_path):
         engine.render_slide({"visual": visual, "say": "x", "cast_i": 1, **extra},
                             p, THEMES["mint"])
         assert p.stat().st_size > 0
+
+
+def test_a_part_only_ever_ends_on_a_beat_boundary():
+    """The seam between two parts has to land where the video already cut, or
+    the join shows. Beats are paragraphs, so this is also what stops a part
+    ending part-way through a sentence."""
+    seconds = [3.0, 41.0, 7.5, 62.0, 19.0, 8.0, 30.0]
+    ranges = engine.part_ranges(seconds, target=50.0, floor=0.0)
+    assert ranges[0][0] == 0
+    assert ranges[-1][1] == len(seconds)
+    for (_, end), (start, _) in zip(ranges, ranges[1:]):
+        assert end == start, "a beat fell between two parts or into both"
+    assert sum(sum(seconds[a:b]) for a, b in ranges) == sum(seconds)
+
+
+def test_a_short_tail_is_folded_into_the_part_before_it():
+    """Splitting 160 seconds at 150 would leave a ten second file on its own."""
+    assert engine.part_ranges([10.0] * 16, target=150.0, floor=25.0) == [(0, 16)]
+    assert engine.part_ranges([10.0] * 18, target=150.0, floor=25.0) == \
+        [(0, 15), (15, 18)]
+
+
+def test_one_short_video_is_one_part():
+    assert engine.part_ranges([4.0] * 5) == [(0, 5)]
+
+
+def test_the_part_key_covers_where_it_sits_in_the_music():
+    """Two parts can hold the same beats and still need different encodes: the
+    music under them comes from a different stretch of the bed."""
+    a = engine.part_key(["x", "y"], None, None, 0.0, first=True, last=False)
+    b = engine.part_key(["x", "y"], None, None, 90.0, first=True, last=False)
+    c = engine.part_key(["x", "y"], None, None, 0.0, first=False, last=False)
+    assert len({a, b, c}) == 3

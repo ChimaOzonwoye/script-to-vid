@@ -142,8 +142,10 @@ def test_scale_for_height_is_the_inverse():
 
 
 def test_a_framing_never_repeats_back_to_back():
+    """Framings are for beats that ask for a layout by name. Plain narration
+    is the presenter now, which holds one position on purpose."""
     from app.script_parser import parse, FRAMED
-    text = "\n\n".join(f"Plain narration paragraph number {i} here."
+    text = "\n\n".join(f"> character: happy\n\nParagraph number {i} here."
                        for i in range(12))
     framings = [b["framing"] for b in parse(text)["beats"]
                 if b["visual"] in FRAMED]
@@ -152,18 +154,26 @@ def test_a_framing_never_repeats_back_to_back():
     assert len(set(framings)) == len(scenes.FRAMINGS), "all framings get used"
 
 
-def test_framing_travels_on_the_beat_so_the_cache_covers_it():
+def test_the_layout_choice_travels_on_the_beat_so_the_cache_covers_it():
     """Picked at render time instead, a rebuild would look different from
-    the first run while reusing the same cached segments."""
-    from app.script_parser import parse, FRAMED
-    beats = parse("First paragraph here.\n\nSecond paragraph here.")["beats"]
-    framed = [b for b in beats if b["visual"] in FRAMED]
-    assert framed and all("framing" in b and "flip" in b for b in framed)
-
+    the first run while reusing the same cached segments. True of the framing
+    on a named beat and of the side the presenter stands on.
+    """
     from app import engine
-    a, b = dict(framed[0]), {**framed[0], "framing": "close"}
+    from app.script_parser import parse, FRAMED
+
+    named = parse("> character: happy\n\nFirst paragraph here.")["beats"]
+    framed = [b for b in named if b["visual"] in FRAMED]
+    assert framed and all("framing" in b and "flip" in b for b in framed)
+    a = dict(framed[0])
     assert engine.segment_key(a, THEMES["cream"], "audio") != \
-        engine.segment_key(b, THEMES["cream"], "audio")
+        engine.segment_key({**a, "framing": "close"}, THEMES["cream"], "audio")
+
+    plain = parse("First paragraph here.\n\nSecond paragraph here.")["beats"]
+    assert all("side" in b for b in plain), "the presenter's side is not on the beat"
+    b = dict(plain[0])
+    assert engine.segment_key(b, THEMES["cream"], "audio") != \
+        engine.segment_key({**b, "side": "right"}, THEMES["cream"], "audio")
 
 
 def test_every_head_shape_fills_the_same_share_of_the_frame():

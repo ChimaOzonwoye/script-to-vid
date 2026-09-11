@@ -35,11 +35,18 @@ def render(name, tmp_path, theme="cream", beat=None, framing="medium"):
 @pytest.mark.parametrize("name", NAMED)
 @pytest.mark.parametrize("theme", sorted(THEMES))
 def test_a_background_never_reaches_the_logo(name, theme, tmp_path):
+    """A room may not put furniture where the corner logo goes.
+
+    The comparison is against the same template with an empty room rather than
+    against a flat page colour: a template lays a ground and a light under
+    every scene, so the corner is legitimately not the page colour, and the
+    thing being pinned here is what the room added on top of it.
+    """
     im = render(name, tmp_path, theme)
+    bare = render("plain", tmp_path, theme)
     x0, y0, x1, y1 = LOGO_BOX
-    corner = im[y0:y1, x0:x1]
-    page = np.array([int(THEMES[theme].bg[i:i + 2], 16) for i in (1, 3, 5)])
-    assert np.abs(corner - page).max() <= 6, f"{name} draws under the logo"
+    assert np.abs(im[y0:y1, x0:x1] - bare[y0:y1, x0:x1]).max() <= 6, \
+        f"{name} draws under the logo"
 
 
 def stage_boxes(name):

@@ -22,6 +22,7 @@ import numpy as np
 
 from . import backgrounds as bg
 from . import characters as ch
+from . import stagecraft
 from .themes import mix
 
 STAGE_W, STAGE_H = 32.0, 18.0
@@ -102,11 +103,24 @@ def _place(b, height=None, side=None):
     return side * f["x"] * (STAGE_W / 2), ground, s
 
 
-def _stage(fig, b=None, T=None, ground=GROUND_Y):
+def focus_of(x):
+    """A stage x as a share of the frame width, for whatever is lighting it."""
+    return (x - X_MIN) / STAGE_W
+
+
+def _stage(fig, b=None, T=None, ground=GROUND_Y, focus=0.5):
+    """The axes every scene draws into, with the template already laid down.
+
+    The template's ground and light go on first and the room on top of them,
+    so a scene that names a background gets that room lit by the template
+    rather than a room drawn over a treatment it knows nothing about.
+    """
     ax = fig.add_axes([0, 0, 1, 1])
     ax.axis("off")
     ax.set_xlim(X_MIN, X_MIN + STAGE_W)
     ax.set_ylim(Y_MIN, Y_MIN + STAGE_H)
+    if T is not None:
+        stagecraft.draw(ax, T, focus, ground)
     if b is not None:
         bg.draw(ax, b.get("background"), T, ground)
     return ax
@@ -132,15 +146,18 @@ def _caption(fig, T, b, text, side=None):
                      ha="center", va="center", fontsize=44, color=T.ink,
                      fontweight="bold", linespacing=1.2)
         _fit(fig, t, 620)
+        stagecraft.letter(t, T)
     elif where == "above":
         # clear of the logo, which starts higher up the right hand side
         t = fig.text(0.5, 0.76, text.upper(), ha="center", va="center",
                      fontsize=46, color=T.ink, fontweight="bold")
         _fit(fig, t, 1728)
+        stagecraft.letter(t, T)
     else:
         t = fig.text(0.5, 0.105, text.upper(), ha="center", va="center",
                      fontsize=42, color=T.ink, fontweight="bold")
         _fit(fig, t, 1728)
+        stagecraft.letter(t, T)
 
 
 def _draw(ax, b, T, x, ground, s, pose=None, expr=None, cast_i=None,
@@ -176,10 +193,47 @@ def _prop(ax, name, x, ground, s, hand=None):
         ch.prop_jar(ax, x, ground, s=0.7 * s, fill=0.65)
 
 
+# The presenter stands in one third of the frame and stays there. Content
+# fills the rest and is the only thing that changes between beats, which is
+# what makes a run of them feel like a host talking rather than a slideshow.
+# The side alternates at chapters, not per beat, so it reads as a cut to the
+# other camera rather than the figure hopping about.
+PRESENTER = {"height": 0.66, "x": 0.54}
+
+
+def presenter_x(side):
+    return side * PRESENTER["x"] * (STAGE_W / 2)
+
+
+def _presenter_content(fig, T, b, side):
+    """Headline centred in the space the figure is not standing in."""
+    text = (b.get("caption") or b.get("headline") or "").strip()
+    if not text:
+        return
+    t = fig.text(0.5 - side * 0.17, 0.54,
+                 "\n".join(textwrap.wrap(text.upper(), 15)),
+                 ha="center", va="center", fontsize=56, color=T.ink,
+                 fontweight="bold", linespacing=1.16)
+    _fit(fig, t, 980)
+    stagecraft.letter(t, T)
+
+
+def scene_presenter(fig, b, T):
+    """One figure held in place, the content beside them changing."""
+    side = -1 if b.get("side", "left") == "left" else 1
+    head, _ = _shape(b)
+    s = ch.scale_for_height(PRESENTER["height"] * STAGE_H, head, ch.HEAD_RATIO)
+    px = presenter_x(side)
+    ax = _stage(fig, b, T, GROUND_Y, focus_of(px))
+    ch.ground(ax, GROUND_Y)
+    _draw(ax, b, T, px, GROUND_Y, s)
+    _presenter_content(fig, T, b, side)
+
+
 def scene_character(fig, b, T):
     """One figure, an optional prop, framed wide, medium or close."""
     x, ground, s = _place(b)
-    ax = _stage(fig, b, T, ground)
+    ax = _stage(fig, b, T, ground, focus_of(x))
     if ground >= Y_MIN:
         ch.ground(ax, ground)
     anchors = _draw(ax, b, T, x, ground, s)
@@ -192,7 +246,7 @@ def scene_character(fig, b, T):
 def scene_caption(fig, b, T):
     """One figure and a large caption, the caption carrying the beat."""
     x, ground, s = _place(b)
-    ax = _stage(fig, b, T, ground)
+    ax = _stage(fig, b, T, ground, focus_of(x))
     if ground >= Y_MIN:
         ch.ground(ax, ground)
     _draw(ax, b, T, x, ground, s)
@@ -307,6 +361,7 @@ def scene_chart(fig, b, T):
 
 
 VISUALS = {
+    "scene_presenter": scene_presenter,
     "scene_character": scene_character,
     "scene_caption": scene_caption,
     "scene_duo": scene_duo,

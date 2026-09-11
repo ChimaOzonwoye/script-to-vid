@@ -8,10 +8,10 @@
 <link rel="stylesheet" href="/static/style.css">
 <style>
 :root {
-  --bg: {{ theme.bg }}; --panel: {{ theme.panel }}; --ink: {{ theme.ink }};
-  --dim: {{ theme.dim }}; --grid: {{ theme.grid }};
-  --accent: {{ theme.ui }}; --accent2: {{ theme.a1 }};
-  --accent-pale: {{ theme.a2_pale }}; --accent2-pale: {{ theme.a1_pale }};
+  --bg: {{ page.bg }}; --panel: {{ page.panel }}; --ink: {{ page.ink }};
+  --dim: {{ page.dim }}; --grid: {{ page.grid }};
+  --accent: {{ page.accent }}; --accent2: {{ page.accent2 }};
+  --accent-pale: {{ page.accent_pale }}; --accent2-pale: {{ page.accent2_pale }};
 }
 </style>
 </head>
@@ -112,23 +112,46 @@
 
   <section class="step" id="look">
     <h2><span class="stepnum">4</span>Look<span class="stepval" id="chip-look"></span></h2>
-    <p class="hint">The page shows the theme you pick. So will the video.</p>
+    <p class="hint">A template is a ground, a light and a palette. Pick one,
+      then change the light or the lettering if you want to.</p>
     <div class="swatches">
       {% for key, t in themes.items() %}
       <form method="post" action="/p/{{ name }}/theme">
         <input type="hidden" name="theme" value="{{ key }}">
         <button type="submit" class="swatch {{ 'selected' if key == theme.name else '' }}"
-                aria-label="Use the {{ t.label }} theme">
-          <span class="chip" style="background: {{ t.bg }}">
-            <i style="background: {{ t.a1 }}"></i>
-            <i style="background: {{ t.a2 }}"></i>
-            <i style="background: {{ t.ink }}"></i>
-          </span>
+                aria-label="Use the {{ t.label }} template"
+                {% if t.blurb %}title="{{ t.blurb }}"{% endif %}>
+          <img class="preview" src="/template/{{ key }}.png" loading="lazy"
+               width="480" height="270" alt="">
           <span class="label">{{ t.label }}</span>
         </button>
       </form>
       {% endfor %}
     </div>
+    <figure class="lookshot">
+      <img src="/template/{{ theme.name }}.png?light={{ light }}&lettering={{ lettering }}"
+           width="480" height="270" alt="A still in the {{ theme.label }} template">
+      {% if theme.blurb %}<figcaption>{{ theme.blurb }}</figcaption>{% endif %}
+    </figure>
+    <form method="post" action="/p/{{ name }}/look" class="lookrow">
+      <label>Light
+        <select name="light">
+          <option value="">As the template ships ({{ lights[themes[theme.name].light] }})</option>
+          {% for key, label in lights.items() %}
+          <option value="{{ key }}" {{ 'selected' if key == light else '' }}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>Lettering
+        <select name="lettering">
+          <option value="">As the template ships ({{ letterings[themes[theme.name].lettering] }})</option>
+          {% for key, label in letterings.items() %}
+          <option value="{{ key }}" {{ 'selected' if key == lettering else '' }}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <button type="submit" class="quiet small">Apply</button>
+    </form>
   </section>
 
   <section class="step">

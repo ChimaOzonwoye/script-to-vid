@@ -30,7 +30,13 @@ PROPS = ("piggy", "coin", "coins", "jar")
 
 # layouts that read well with nothing but narration, cycled so the same one
 # never appears twice in a row
-ROTATION = ("scene_caption", "caption", "scene_character", "quiet")
+# A narration paragraph with no direction on it is the presenter: one figure
+# held in the same place with the words beside them. Fix list 4 rotated four
+# layouts here and moved the figure every beat, which is what made a run of
+# beats read as a slideshow. Variety comes from the content beside the
+# presenter changing, and from the side swapping at chapters. The rotation
+# layouts are all still reachable by naming them.
+DEFAULT_VISUAL = "scene_presenter"
 
 # Single figure scenes are drawn wide, medium or close, cycled so no two beats
 # in a row are framed alike, and flipped so the figure changes sides. The
@@ -138,17 +144,54 @@ def _headings_flood(lines):
     return len(heads) >= _FLOOD_MIN and len(heads) * 2 > len(body)
 
 
-# a caption cut to a word limit often lands on a word that cannot end a
-# phrase, giving captions like "START WITH EGGS STRAIGHT FROM THE"
+# A caption cut at a word count lands mid thought: "SAVING MONEY IS SIMPLE
+# BUT NOT". Beside a presenter that caption is the only thing on screen, so
+# it has to read as a title. Prefer the whole first sentence, fall back to
+# its first clause, and only then cut at a word count, trimming any word that
+# cannot end a phrase.
+# Words that cannot be the last word of a headline. Cutting a sentence at a
+# fixed word count lands on these constantly ("TAKE THE MONEY OUT BEFORE"),
+# and the reader spends the beat waiting for the rest of a phrase that never
+# arrives. Articles, conjunctions and auxiliaries are the obvious ones;
+# prepositions matter more, because they promise an object.
 _DANGLING = {"a", "an", "and", "as", "at", "but", "by", "for", "from", "in",
              "into", "of", "on", "or", "so", "than", "that", "the", "then",
-             "to", "with", "your"}
+             "to", "with", "your", "not", "will", "would", "can", "could",
+             "should", "is", "are", "was", "were", "be", "been", "has",
+             "have", "had", "do", "does", "did", "very", "just", "about",
+             "after", "before", "during", "over", "under", "through",
+             "without", "within", "against", "between", "among", "onto",
+             "off", "up", "down", "out", "when", "while", "until", "since",
+             "because", "unless", "though", "although", "if", "how", "what",
+             "who", "which", "where", "why", "there", "here", "its", "their",
+             "his", "her", "our", "my", "this", "these", "those", "every",
+             "each", "some", "any", "more", "most", "much", "many", "own"}
 
 
-def _auto_headline(say, limit=6):
-    words = say.replace("\n", " ").split()[:limit]
+def _trim(words):
+    """Drop trailing words that leave the headline hanging mid-phrase."""
     while len(words) > 2 and words[-1].strip(".,;:!?").lower() in _DANGLING:
         words.pop()
+    return words
+
+
+def _auto_headline(say, limit=9):
+    """A short title for the words being spoken, taken from their first sentence.
+
+    Whole sentences read best, so a short one is used as it stands. Anything
+    longer is cut at the first comma if that leaves a phrase short enough,
+    because a comma is a boundary the writer already chose; only when that
+    fails does it fall back to a word count, and then trailing function words
+    are dropped so the cut lands somewhere a reader can stop.
+    """
+    first = re.split(r"(?<=[.!?])\s+", (say or "").replace("\n", " ").strip())[0]
+    words = first.split()
+    if not words:
+        return ""
+    if len(words) <= limit:
+        return first.rstrip(".,;:!?").upper()
+    clause = first.split(",")[0].split()
+    words = _trim(clause if len(clause) <= limit else words[:limit])
     return " ".join(words).rstrip(".,;:!?").upper()
 
 
@@ -268,21 +311,22 @@ def _build_beat(primary, modifiers, say, cast_i, warnings):
     return b
 
 
-def _rotated_beat(say, cast_i, rot_i, prev_visual):
-    visual = ROTATION[rot_i % len(ROTATION)]
-    if visual == prev_visual:
-        rot_i += 1
-        visual = ROTATION[rot_i % len(ROTATION)]
-    b = {"say": say, "visual": visual}
-    if visual in ("scene_caption", "caption", "scene_character"):
-        b["caption"] = _auto_headline(say)
-    if visual == "quiet":
-        b["headline"] = _auto_headline(say)
-    if visual.startswith("scene_"):
-        b["cast_i"] = cast_i
-        b["expr"] = ("neutral", "happy", "thinking")[rot_i % 3]
-        b["pose"] = ("stand", "offer", "think")[rot_i % 3]
-    return b, rot_i + 1
+def _presenter_beat(say, cast_i, rot_i, side):
+    """The default beat: a presenter, and the words beside them.
+
+    The side is settled by the chapter rather than by this counter, so the
+    figure holds its place through a run of beats and the swap reads as a cut
+    to the other camera.
+    """
+    return {
+        "say": say,
+        "visual": DEFAULT_VISUAL,
+        "caption": _auto_headline(say),
+        "cast_i": cast_i,
+        "side": side,
+        "expr": ("happy", "neutral", "happy", "thinking")[rot_i % 4],
+        "pose": ("offer", "stand", "point", "think")[rot_i % 4],
+    }, rot_i + 1
 
 
 def parse(text, keep=()):
@@ -360,7 +404,8 @@ def parse(text, keep=()):
                         b["background"] = name
             add(b)
             return
-        b, rot_i = _rotated_beat(say, cast_i, rot_i, prev_visual())
+        b, rot_i = _presenter_beat(say, cast_i, rot_i,
+                                   "left" if chapter_n % 2 == 0 else "right")
         add(b)
 
     lines = (text or "").splitlines()

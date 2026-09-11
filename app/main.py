@@ -11,14 +11,16 @@ import urllib.request
 from pathlib import Path
 
 from fastapi import FastAPI, Request, UploadFile, File, Form
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.responses import (FileResponse, HTMLResponse, JSONResponse,
+                               RedirectResponse)
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from PIL import Image
 
 from . import engine, joiner, projects, voices
 from .script_parser import parse
-from .themes import THEMES, DEFAULT_THEME
+from .themes import (THEMES, DEFAULT_THEME, page_palette, resolve,
+                     LIGHT_LABELS, LETTERING_LABELS)
 
 HERE = Path(__file__).resolve().parent
 app = FastAPI(title="script to vid")
@@ -72,7 +74,7 @@ def _analysis(name, text):
     cfg = projects.settings(name)
     r = parse(text, keep=cfg["keep"])
     est = engine.estimate_seconds(r["beats"], cfg["rate"])
-    theme = THEMES.get(cfg["theme"], THEMES[DEFAULT_THEME])
+    theme = resolve(cfg["theme"], cfg["light"], cfg["lettering"])
     p = engine.plan(projects.path_of(name), r["beats"], theme,
                     cfg["voice"], cfg["rate"])
     m, s = divmod(int(est), 60)
@@ -101,6 +103,7 @@ def home(request: Request):
     return templates.TemplateResponse(request, "index.html", {
         "projects": projects.list_projects(),
         "theme": THEMES[DEFAULT_THEME],
+        "page": page_palette(THEMES[DEFAULT_THEME]),
     })
 
 
@@ -118,7 +121,7 @@ def project_page(request: Request, name: str):
     if not _valid(name):
         return RedirectResponse("/", status_code=303)
     cfg = projects.settings(name)
-    theme = THEMES.get(cfg["theme"], THEMES[DEFAULT_THEME])
+    theme = resolve(cfg["theme"], cfg["light"], cfg["lettering"])
     p = projects.path_of(name)
     music = p / "music.mp3"
     msec = _music_seconds(music) if music.exists() else None
@@ -132,7 +135,12 @@ def project_page(request: Request, name: str):
         "name": name,
         "script": projects.script(name),
         "theme": theme,
+        "page": page_palette(theme),
         "themes": THEMES,
+        "lights": LIGHT_LABELS,
+        "letterings": LETTERING_LABELS,
+        "light": cfg["light"],
+        "lettering": cfg["lettering"],
         "voices": voices.listing(),
         "voice": cfg["voice"],
         "rates": voices.RATES,
@@ -199,12 +207,69 @@ def set_voice(name: str, voice: str = Form(...), rate: str = Form(...)):
             "voice": cfg["voice"], "rate": cfg["rate"]}
 
 
+# ----------------------------------------------------------------------
+# template previews
+# ----------------------------------------------------------------------
+
+PREVIEW_DIR = projects.ROOT / "cache" / "previews"
+PREVIEW_LOCK = threading.Lock()
+PREVIEW_BEAT = {"say": "", "visual": "scene_presenter", "side": "left",
+                "caption": "A line from your script", "cast_i": 0,
+                "expr": "happy", "pose": "offer"}
+
+
+def preview_png(T):
+    """A small still of what this template actually looks like.
+
+    Colour dots do not tell anyone that Coral has a sunburst behind the
+    speaker, and a template is the one setting people cannot judge without
+    seeing it. The file is keyed on the whole template object, so a change to
+    a ground or a light shows up without anything to invalidate by hand, and
+    the lock is there because matplotlib is not safe to drive from two request
+    threads at once.
+    """
+    PREVIEW_DIR.mkdir(parents=True, exist_ok=True)
+    key = engine.segment_key(PREVIEW_BEAT, T, "preview")
+    out = PREVIEW_DIR / f"{key}.png"
+    if not out.exists():
+        with PREVIEW_LOCK:
+            if not out.exists():
+                full = PREVIEW_DIR / f"{key}.full.png"
+                engine.render_slide(PREVIEW_BEAT, full, T)
+                Image.open(full).resize((480, 270), Image.LANCZOS).save(out)
+                full.unlink(missing_ok=True)
+    return out
+
+
+@app.get("/template/{key}.png")
+def template_preview(key: str, light: str = "", lettering: str = ""):
+    if key not in THEMES:
+        return JSONResponse({"error": "no such template"}, status_code=404)
+    return FileResponse(preview_png(resolve(key, light, lettering)),
+                        media_type="image/png",
+                        headers={"Cache-Control": "no-cache"})
+
+
 @app.post("/p/{name}/theme")
 def set_theme(name: str, theme: str = Form(...)):
     if not _valid(name):
         return RedirectResponse("/", status_code=303)
     if theme in THEMES:
-        projects.save_settings(name, {"theme": theme})
+        # picking a template clears the two overrides: the light and the
+        # lettering it ships with are part of what was just chosen, and
+        # keeping the last template's spotlight over them is not
+        projects.save_settings(name, {"theme": theme, "light": "",
+                                      "lettering": ""})
+    return RedirectResponse(f"/p/{name}#look", status_code=303)
+
+
+@app.post("/p/{name}/look")
+def set_look(name: str, light: str = Form(""), lettering: str = Form("")):
+    if not _valid(name):
+        return RedirectResponse("/", status_code=303)
+    projects.save_settings(name, {
+        "light": light if light in LIGHT_LABELS else "",
+        "lettering": lettering if lettering in LETTERING_LABELS else ""})
     return RedirectResponse(f"/p/{name}#look", status_code=303)
 
 
@@ -366,7 +431,7 @@ async def generate(name: str, request: Request):
     r = parse(text, keep=cfg["keep"])
     if not r["beats"]:
         return fail("The script is empty. Write some narration first.")
-    theme = THEMES.get(cfg["theme"], THEMES[DEFAULT_THEME])
+    theme = resolve(cfg["theme"], cfg["light"], cfg["lettering"])
     RENDERS[name] = {"state": "running", "message": "Starting..."}
     threading.Thread(target=_render_worker,
                      args=(name, r["beats"], theme, cfg["voice"], cfg["rate"]),
@@ -436,6 +501,7 @@ def merge_page(request: Request):
         "clips": _library(),
         "has_video": out.exists(),
         "theme": THEMES[DEFAULT_THEME],
+        "page": page_palette(THEMES[DEFAULT_THEME]),
     })
 
 

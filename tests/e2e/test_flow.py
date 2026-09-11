@@ -70,7 +70,7 @@ def test_paste_to_download(server):
         # and the next click races the navigation; wait for the navigation
         # itself instead.
         with page.expect_navigation():
-            page.click('button[aria-label="Use the Sky theme"]')
+            page.click('button[aria-label="Use the Sky template"]')
         page.wait_for_selector("#script-info:has-text('words')")
         assert "browser" in page.input_value("#script"), \
             "the script must survive the reload the theme click causes"
