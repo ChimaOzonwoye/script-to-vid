@@ -274,6 +274,26 @@ def scene_story(fig, b, T):
         bottom_caption(fig, T, b.get("say"))
 
 
+def scene_photo(fig, b, T):
+    """A picture you brought, filling the frame, with the words under it.
+
+    The template's light still goes over the top, so a spotlight or a vignette
+    grades the photograph the same way it grades a drawn scene and the video
+    holds together. With no picture to show this falls back to the story
+    frame rather than rendering an empty rectangle.
+    """
+    path = b.get("image")
+    if not path:
+        return scene_story(fig, b, T)
+    import matplotlib.image as mpimg
+    ax = _stage(fig, b, T, GROUND_Y, 0.5)
+    ax.imshow(mpimg.imread(path),
+              extent=(X_MIN, X_MIN + STAGE_W, Y_MIN, Y_MIN + STAGE_H),
+              aspect="auto", zorder=-5, interpolation="bilinear")
+    if getattr(T, "captions", "headline") != "none":
+        bottom_caption(fig, T, b.get("say"))
+
+
 def scene_presenter(fig, b, T):
     """One figure held in place, the content beside them changing.
 
@@ -282,8 +302,11 @@ def scene_presenter(fig, b, T):
     parser keeps the choice with the look, where it belongs: the same script
     renders with a presenter or without one depending only on the template.
     """
-    if getattr(T, "layout", "presenter") == "story":
+    kind = getattr(T, "layout", "presenter")
+    if kind == "story":
         return scene_story(fig, b, T)
+    if kind == "photo":
+        return scene_photo(fig, b, T)
     side = -1 if b.get("side", "left") == "left" else 1
     head, _ = _shape(b)
     s = ch.scale_for_height(PRESENTER["height"] * STAGE_H, head, ch.HEAD_RATIO)
@@ -427,6 +450,7 @@ def scene_chart(fig, b, T):
 VISUALS = {
     "scene_presenter": scene_presenter,
     "scene_story": scene_story,
+    "scene_photo": scene_photo,
     "scene_character": scene_character,
     "scene_caption": scene_caption,
     "scene_duo": scene_duo,

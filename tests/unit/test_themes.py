@@ -155,3 +155,32 @@ def test_a_story_template_never_leaves_the_line_unreadable():
     caption bar rather than nothing at all."""
     from app import scenes
     assert scenes.VISUALS["scene_story"] is scenes.scene_story
+
+
+def test_the_picker_can_show_one_family_at_a_time():
+    """Sixteen templates will not fit on a step and would not be readable if
+    they did. Every template has to land in a group or it is unreachable."""
+    from app.themes import FAMILY_LABELS, by_family
+    grouped = by_family()
+    assert set(grouped) == set(FAMILY_LABELS)
+    seen = {k for ts in grouped.values() for k in ts}
+    assert seen == set(THEMES), set(THEMES) - seen
+    for fam, ts in grouped.items():
+        assert ts, f"{fam} is empty and would show an empty tab"
+
+
+def test_weather_is_a_choice_of_its_own():
+    from app.themes import EFFECT_LABELS, resolve
+    from app.effects import EFFECTS
+    assert set(EFFECT_LABELS) == {"none", *EFFECTS}
+    for T in THEMES.values():
+        assert T.effect in EFFECT_LABELS, (T.name, T.effect)
+    assert resolve("cream", effect="snow").effect == "snow"
+    assert resolve("cream", effect="hurricane").effect == "none"
+
+
+def test_every_template_names_a_layout_that_exists():
+    from app import scenes
+    for T in THEMES.values():
+        assert T.layout in ("presenter", "story", "photo"), (T.name, T.layout)
+    assert "scene_photo" in scenes.VISUALS

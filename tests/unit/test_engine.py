@@ -62,6 +62,10 @@ def test_every_scene_visual_renders(tmp_path):
         "scene_presenter": {"caption": "Words beside them", "side": "left"},
         "scene_story": {"say": "Five years later it was money",
                         "symbol": "money"},
+        # no image, so this falls back to the story frame, which is the case
+        # worth pinning: a photo template on a project with no pictures
+        "scene_photo": {"say": "Five years later it was money",
+                        "symbol": "money"},
         "scene_character": {"expr": "happy", "pose": "cheer", "prop": "piggy",
                             "caption": "Cap"},
         "scene_caption": {"caption": "Big caption"},

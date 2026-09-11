@@ -25,7 +25,7 @@ EXAMPLE_SCRIPT = ROOT / "example-script.txt"
 # that never overrode it.
 DEFAULTS = {"theme": DEFAULT_THEME, "voice": DEFAULT_VOICE,
             "rate": DEFAULT_RATE, "keep": [], "light": "", "lettering": "",
-            "dressing": "", "captions": ""}
+            "dressing": "", "captions": "", "effect": ""}
 
 
 def slugify(name):
@@ -88,7 +88,8 @@ def settings(name):
     cfg["rate"] = valid_rate(cfg.get("rate"))
     kept = cfg.get("keep")
     cfg["keep"] = [k for k in kept if isinstance(k, str)] if isinstance(kept, list) else []
-    for field in ("light", "lettering", "dressing", "captions"):
+    for field in ("light", "lettering", "dressing", "captions",
+                  "effect"):
         cfg[field] = cfg[field] if isinstance(cfg.get(field), str) else ""
     return cfg
 

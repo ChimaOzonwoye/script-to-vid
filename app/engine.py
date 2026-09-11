@@ -39,6 +39,8 @@ from matplotlib.colors import to_rgb
 from PIL import Image
 
 from . import animate
+from . import effects
+from . import images
 from . import stagecraft
 from .themes import mix
 from .voices import DEFAULT_VOICE as VOICE, DEFAULT_RATE as RATE
@@ -610,10 +612,15 @@ def _prepared(beats, project):
     so hashing a beat covers all of its inputs."""
     out = []
     logo = project / "logo.png"
+    beats = images.assign(beats, project)
     for b in beats:
         b = dict(b)
         if b["visual"] == "outro" and logo.exists():
             b["logo_hash"] = _file_hash(logo)
+        if b.get("image"):
+            # the path is what draws it, the hash is what makes replacing a
+            # picture under the same name rebuild the segment
+            b["image_hash"] = _file_hash(Path(b["image"]))
         out.append(b)
     return out
 
@@ -836,6 +843,14 @@ def render_video(project, beats, theme, voice=VOICE, rate=RATE, progress=None):
             render_slide(b, work / f"slide_{i:02d}.png", theme)
     report("slides", len(missing), len(missing))
 
+    # One loop for the whole video: the weather does not change between beats,
+    # and generating it per segment would be the same pictures every time.
+    fx_dir = None
+    if getattr(theme, "effect", "none") != "none":
+        built = effects.build(theme.effect, theme,
+                              cache / "effects" / effects.key(theme.effect, theme))
+        fx_dir = built[0] if built else None
+
     for j, i in enumerate(missing):
         report("segments", j, len(missing))
         snd = paths[i]
@@ -869,7 +884,20 @@ def render_video(project, beats, theme, voice=VOICE, rate=RATE, progress=None):
                     + f"zoompan=z='min(zoom+{ZOOM_RATE},1.06)':d={frames}" + pan)
         # fades go to the page colour, not black, or the light theme flashes dark
         fade_col = theme.bg.lstrip("#")
-        vf = (f"[0:v]{zoom},fade=t=in:st=0:d={FADE}:color=0x{fade_col},"
+        # The weather goes on after the zoom and before the fades, so it is
+        # not dragged around by the pan and it does fade out with everything
+        # else. It is a short loop of transparent frames played on repeat, so
+        # a ten minute video costs one loop.
+        weather = ""
+        extra = []
+        if fx_dir:
+            extra = ["-framerate", str(FPS), "-stream_loop", "-1",
+                     "-i", str(fx_dir / "frame_%03d.png")]
+            # the inputs are always slide, then narration, then weather,
+            # whether the slide is one image or a sequence of them
+            weather = (f",format=rgba[base];[2:v]"
+                       f"scale={W}:{H}[wx];[base][wx]overlay=0:0:shortest=0")
+        vf = (f"[0:v]{zoom}{weather},fade=t=in:st=0:d={FADE}:color=0x{fade_col},"
               f"fade=t=out:st={d - FADE:.3f}:d={FADE}:color=0x{fade_col},"
               f"format=yuv420p[v]")
         # lead-in silence stops the first consonant being clipped by mp3 padding
@@ -878,7 +906,7 @@ def render_video(project, beats, theme, voice=VOICE, rate=RATE, progress=None):
               f"afade=t=out:st={d - 0.25:.3f}:d=0.25[a]")
         # fast intermediate encode; the final pass does the real compression
         tmp = work / "seg_tmp.mp4"
-        run(["ffmpeg", "-y", *src, "-i", str(snd),
+        run(["ffmpeg", "-y", *src, "-i", str(snd), *extra,
              "-filter_complex", f"{vf};{af}",
              "-map", "[v]", "-map", "[a]",
              "-c:v", "libx264", "-preset", "veryfast", "-crf", "16",
