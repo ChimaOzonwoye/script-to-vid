@@ -282,7 +282,7 @@ opposite of the point.
 Working and tested: the parser, the voiceover and its cache, all the scene
 layouts, the eleven templates with their grounds, lights, lettering and side
 objects, the logo and music, subtitles, the part renderer and its resume, the
-joiner, the installers for Windows and Mac, and the web app. 474 tests across
+joiner, the installers for Windows and Mac, and the web app. 476 tests across
 unit, integration and end to end, with a real render in the integration ones.
 
 Known gaps:

@@ -4,6 +4,7 @@ Binds to localhost only; nothing leaves the machine except the edge-tts
 requests. Every user-facing failure is a plain sentence, never a traceback.
 """
 
+import hashlib
 import io
 import subprocess
 import threading
@@ -32,6 +33,30 @@ app.mount("/files", StaticFiles(directory=projects.PROJECTS_DIR), name="files")
 projects.MERGES_DIR.mkdir(exist_ok=True)
 (projects.MERGES_DIR / "uploads").mkdir(exist_ok=True)
 app.mount("/merges", StaticFiles(directory=projects.MERGES_DIR), name="merges")
+
+# Updating the app rewrites the stylesheet in place, and a browser that has
+# already cached it under the same address will happily keep the old one for
+# days. The markup is rendered per request so it updates immediately, which is
+# the worst version of the problem: new page, old layout. Stamping the address
+# with the file itself means a changed stylesheet is a different address.
+def asset_version(path):
+    """A stamp for a static file, taken from its contents.
+
+    Modified time and size were the cheap answer and they collide: an edit
+    that changes a colour and nothing else keeps the size, and if it lands in
+    the same second it keeps the timestamp too. Hashing costs one read of a
+    small file at startup and cannot be wrong.
+    """
+    try:
+        return hashlib.sha1(path.read_bytes()).hexdigest()[:12]
+    except OSError:
+        return "0"
+
+
+ASSET_V = asset_version(HERE / "static" / "style.css")
+# a global rather than a key in every context, because a page that was
+# missed would be the one page still serving the old stylesheet
+templates.env.globals["asset_v"] = ASSET_V
 
 MUSIC_DIR = projects.ROOT / "assets" / "music"
 if MUSIC_DIR.is_dir():

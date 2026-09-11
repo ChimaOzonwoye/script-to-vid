@@ -300,3 +300,31 @@ def test_a_template_preview_is_drawn_once_and_reused(client, tmp_path,
 
 def test_an_unknown_template_preview_is_not_found(client):
     assert client.get("/template/nope.png").status_code == 404
+
+
+def test_every_page_stamps_the_stylesheet_with_its_version(client, project):
+    """Updating the app rewrites style.css in place. The markup is rendered
+    per request and updates at once, so a browser holding a cached stylesheet
+    gives the new page with the old layout, which is worse than either. The
+    address carries the file's own stamp so a changed file is a new address.
+
+    A global rather than a per page context key, because the page that got
+    missed would be the one still serving the old stylesheet."""
+    from app.main import ASSET_V
+    for url in ("/", f"/p/{project}", "/merge"):
+        body = client.get(url).text
+        assert f"/static/style.css?v={ASSET_V}" in body, url
+
+
+def test_the_stamp_changes_when_the_stylesheet_does(tmp_path):
+    """Modified time and size were the cheap answer and they collide. These
+    two stylesheets differ in one character and are the same length, so an
+    edit like this one landing inside a second would keep both."""
+    from app import main
+    f = tmp_path / "style.css"
+    f.write_text("a{color:red }")
+    first = main.asset_version(f)
+    f.write_text("a{color:teal}")
+    assert f.stat().st_size == len("a{color:red }")
+    assert main.asset_version(f) != first
+    assert main.asset_version(tmp_path / "missing.css") == "0"
