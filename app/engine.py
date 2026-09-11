@@ -623,7 +623,13 @@ def _prepared(beats, project, theme=None):
             # the path is what draws it, the hash is what makes replacing a
             # picture under the same name rebuild the segment
             b["image_hash"] = _file_hash(Path(b["image"]))
-        if theme is not None and getattr(theme, "captions", "headline") == "bottom":
+        # imported here rather than at the top, the way animated() does it,
+        # because scenes reaches back into this module
+        from .scenes import TYPE_LED
+        type_led = (getattr(theme, "layout", "") == "story"
+                    and getattr(theme, "composition", "icon") in TYPE_LED)
+        if (theme is not None and not type_led
+                and getattr(theme, "captions", "headline") == "bottom"):
             pieces = captions.split(b.get("say"))
             # one piece is not rolling, it is a caption, and the slide can
             # carry it without an overlay
@@ -943,7 +949,11 @@ def render_video(project, beats, theme, voice=VOICE, rate=RATE, progress=None):
             # what keeps a speaking beat at six slides instead of six times
             # however many pieces the paragraph came to.
             spans = captions.timings(pieces, LEAD_SILENCE, spoken)
-            story = getattr(theme, "layout", "presenter") == "story"
+            # only the composition that is about the subject lets the
+            # picture change with the words; a watermark or a colour
+            # block is set dressing and must not flicker per piece
+            story = (getattr(theme, "layout", "presenter") == "story"
+                     and getattr(theme, "composition", "icon") == "icon")
             for k, (piece, (a, bb)) in enumerate(zip(pieces, spans)):
                 cf = work / f"cap_{i:02d}_{k:02d}.png"
                 # each piece gets the symbol its own words asked for, falling

@@ -24,7 +24,7 @@ from .script_parser import parse
 from .themes import (THEMES, DEFAULT_THEME, page_palette, resolve,
                      LIGHT_LABELS, LETTERING_LABELS, DRESSING_LABELS,
                      CAPTION_LABELS, EFFECT_LABELS, FAMILY_LABELS,
-                     FAMILY_BLURBS, by_family)
+                     FAMILY_BLURBS, COMPOSITION_LABELS, by_family)
 
 HERE = Path(__file__).resolve().parent
 app = FastAPI(title="script to vid")
@@ -103,7 +103,8 @@ def _analysis(name, text):
     r = parse(text, keep=cfg["keep"])
     est = engine.estimate_seconds(r["beats"], cfg["rate"])
     theme = resolve(cfg["theme"], cfg["light"], cfg["lettering"],
-                    cfg["dressing"], cfg["captions"], cfg["effect"])
+                    cfg["dressing"], cfg["captions"], cfg["effect"],
+                    cfg["composition"])
     p = engine.plan(projects.path_of(name), r["beats"], theme,
                     cfg["voice"], cfg["rate"])
     m, s = divmod(int(est), 60)
@@ -151,7 +152,8 @@ def project_page(request: Request, name: str):
         return RedirectResponse("/", status_code=303)
     cfg = projects.settings(name)
     theme = resolve(cfg["theme"], cfg["light"], cfg["lettering"],
-                    cfg["dressing"], cfg["captions"], cfg["effect"])
+                    cfg["dressing"], cfg["captions"], cfg["effect"],
+                    cfg["composition"])
     p = projects.path_of(name)
     music = p / "music.mp3"
     msec = _music_seconds(music) if music.exists() else None
@@ -172,6 +174,7 @@ def project_page(request: Request, name: str):
         "dressings": DRESSING_LABELS,
         "captionings": CAPTION_LABELS,
         "effects": EFFECT_LABELS,
+        "compositions": COMPOSITION_LABELS,
         "families": by_family(),
         "family_labels": FAMILY_LABELS,
         "family_blurbs": FAMILY_BLURBS,
@@ -180,6 +183,7 @@ def project_page(request: Request, name: str):
         "dressing": cfg["dressing"],
         "captions": cfg["captions"],
         "effect": cfg["effect"],
+        "composition": cfg["composition"],
         "images": _image_listing(name),
         "voices": voices.listing(),
         "voice": cfg["voice"],
@@ -254,14 +258,18 @@ def set_voice(name: str, voice: str = Form(...), rate: str = Form(...)):
 PREVIEW_DIR = projects.ROOT / "cache" / "previews"
 PREVIEW_LOCK = threading.Lock()
 # The line has to be a real one, not an empty string: a story template draws
-# the symbol its words asked for and the caption underneath, so a beat with
-# nothing in it previews as an empty rectangle.
-PREVIEW_BEAT = {"say": "Five years later the money had done the work.",
+# a composition built from the words and the caption underneath, so a beat
+# with nothing in it previews as an empty rectangle. It also has to name
+# nothing in the symbol vocabulary. The first version of this line contained
+# the word "money", so every storytelling template previewed with a banknote
+# in the middle of it and the whole family read as six ways to make a video
+# about cash.
+PREVIEW_LINE = "The part nobody tells you about."
+PREVIEW_BEAT = {"say": PREVIEW_LINE,
                 "visual": "scene_presenter", "side": "left",
-                "caption": "A line from your script", "cast_i": 0,
+                "caption": "The part nobody tells you", "cast_i": 0,
                 "expr": "happy", "pose": "offer",
-                "symbol": symbols.match("Five years later the money had done "
-                                        "the work.")}
+                "symbol": symbols.match(PREVIEW_LINE)}
 
 
 def preview_png(T):
@@ -284,8 +292,8 @@ def preview_png(T):
                 engine.render_slide(PREVIEW_BEAT, full, T)
                 shot = Image.open(full).convert("RGBA")
                 # the weather is a moving layer and a still cannot show it
-                # moving, but leaving it out makes five templates preview as
-                # plain gradients, so one frame of it goes on
+                # moving, but leaving it out makes several templates preview
+                # as plain gradients, so one frame of it goes on
                 built = effects.build(
                     T.effect, T, PREVIEW_DIR / "fx" / effects.key(T.effect, T))
                 if built:
@@ -298,13 +306,14 @@ def preview_png(T):
 
 @app.get("/template/{key}.png")
 def template_preview(key: str, light: str = "", lettering: str = "",
-                     dressing: str = "", captions: str = "", effect: str = ""):
+                     dressing: str = "", captions: str = "", effect: str = "",
+                     composition: str = ""):
     if key not in THEMES:
         return JSONResponse({"error": "no such template"}, status_code=404)
     return FileResponse(
-        preview_png(resolve(key, light, lettering, dressing, captions, effect)),
-                        media_type="image/png",
-                        headers={"Cache-Control": "no-cache"})
+        preview_png(resolve(key, light, lettering, dressing, captions,
+                            effect, composition)),
+        media_type="image/png", headers={"Cache-Control": "no-cache"})
 
 
 @app.post("/p/{name}/theme")
@@ -317,14 +326,15 @@ def set_theme(name: str, theme: str = Form(...)):
         # keeping the last template's spotlight over them is not
         projects.save_settings(name, {"theme": theme, "light": "",
                                       "lettering": "", "dressing": "",
-                                      "captions": "", "effect": ""})
+                                      "captions": "", "effect": "",
+                                      "composition": ""})
     return RedirectResponse(f"/p/{name}#look", status_code=303)
 
 
 @app.post("/p/{name}/look")
 def set_look(name: str, light: str = Form(""), lettering: str = Form(""),
              dressing: str = Form(""), captions: str = Form(""),
-             effect: str = Form("")):
+             effect: str = Form(""), composition: str = Form("")):
     if not _valid(name):
         return RedirectResponse("/", status_code=303)
     projects.save_settings(name, {
@@ -332,7 +342,8 @@ def set_look(name: str, light: str = Form(""), lettering: str = Form(""),
         "lettering": lettering if lettering in LETTERING_LABELS else "",
         "dressing": dressing if dressing in DRESSING_LABELS else "",
         "captions": captions if captions in CAPTION_LABELS else "",
-        "effect": effect if effect in EFFECT_LABELS else ""})
+        "effect": effect if effect in EFFECT_LABELS else "",
+        "composition": composition if composition in COMPOSITION_LABELS else ""})
     return RedirectResponse(f"/p/{name}#look", status_code=303)
 
 
@@ -552,7 +563,8 @@ async def generate(name: str, request: Request):
     if not r["beats"]:
         return fail("The script is empty. Write some narration first.")
     theme = resolve(cfg["theme"], cfg["light"], cfg["lettering"],
-                    cfg["dressing"], cfg["captions"], cfg["effect"])
+                    cfg["dressing"], cfg["captions"], cfg["effect"],
+                    cfg["composition"])
     RENDERS[name] = {"state": "running", "message": "Starting..."}
     threading.Thread(target=_render_worker,
                      args=(name, r["beats"], theme, cfg["voice"], cfg["rate"]),

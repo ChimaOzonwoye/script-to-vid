@@ -184,3 +184,30 @@ def test_every_template_names_a_layout_that_exists():
     for T in THEMES.values():
         assert T.layout in ("presenter", "story", "photo"), (T.name, T.layout)
     assert "scene_photo" in scenes.VISUALS
+
+
+def test_the_frame_shape_is_a_choice_and_every_template_names_a_real_one():
+    """Six templates with one shape between them are one template in six
+    colours, which is what they looked like."""
+    from app.scenes import COMPOSITIONS
+    from app.themes import COMPOSITION_LABELS, by_family, resolve
+    assert set(COMPOSITION_LABELS) == set(COMPOSITIONS)
+    for T in THEMES.values():
+        assert T.composition in COMPOSITIONS, (T.name, T.composition)
+    assert resolve("nightfall", composition="band").composition == "band"
+    assert resolve("nightfall", composition="spiral").composition == "icon"
+
+    # the storytelling family has to actually differ, or grouping them is a lie
+    story = by_family()["story"]
+    shapes = {t.composition for t in story.values()}
+    assert len(shapes) >= 4, f"only {len(shapes)} shapes across {len(story)}"
+
+
+def test_a_type_led_frame_does_not_print_the_words_twice():
+    """The big type is built from the headline and the first caption piece
+    comes from the same sentence, so running both prints the opening of every
+    beat twice in two sizes."""
+    from app import scenes
+    assert set(scenes.TYPE_LED) <= set(scenes.COMPOSITIONS)
+    for shape in scenes.TYPE_LED:
+        assert shape in ("type", "band", "split")

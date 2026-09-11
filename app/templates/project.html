@@ -197,6 +197,14 @@
           {% endfor %}
         </select>
       </label>
+      <label>Frame<small> (templates with no cast)</small>
+        <select name="composition">
+          <option value="">As the template ships ({{ compositions[themes[theme.name].composition] }})</option>
+          {% for key, label in compositions.items() %}
+          <option value="{{ key }}" {{ 'selected' if key == composition else '' }}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </label>
       <button type="submit" class="quiet small">Apply</button>
     </form>
   </section>

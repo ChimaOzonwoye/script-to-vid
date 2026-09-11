@@ -32,6 +32,7 @@ class Theme:
     layout: str = "presenter"   # "presenter", "story" (no cast) or
                                 # "photo" (pictures you brought)
     effect: str = "none"        # particles moving over the whole frame
+    composition: str = "icon"   # the shape of a frame with no cast in it
     family: str = "quiet"       # how the picker groups it
     blurb: str = ""         # one line describing the look, shown on the page
 
@@ -107,8 +108,8 @@ def mix(c1, c2, t):
 
 def _theme(name, label, bg, ink, a1, a2, ground="plain", light="flat",
            lettering="plain", dressing="none", captions="headline",
-           layout="presenter", effect="none", family="quiet",
-           blurb="", **fixed):
+           layout="presenter", effect="none", composition="icon",
+           family="quiet", blurb="", **fixed):
     derived = dict(
         bg=bg, ink=ink, a1=a1, a2=a2,
         panel=mix(bg, ink, 0.04),
@@ -122,7 +123,8 @@ def _theme(name, label, bg, ink, a1, a2, ground="plain", light="flat",
     return Theme(name=name, label=label, ground=ground, light=light,
                  lettering=lettering, dressing=dressing,
                  captions=captions, layout=layout, effect=effect,
-                 family=family, blurb=blurb, **derived)
+                 composition=composition, family=family,
+                 blurb=blurb, **derived)
 
 
 # Cream keeps the hand-picked values the engine shipped with. The blends
@@ -177,36 +179,41 @@ THEMES.update({
         "nightfall", "Nightfall", "#171a2b", "#eeeaf2", "#c9a2e8", "#5fa8d3",
         ground="bars", light="vignette", lettering="plain",
         captions="bottom", layout="story",
+        composition="icon",
         family="story",
-        blurb="Storytelling: no figure, the words at the bottom, the middle "
-              "left for the picture."),
+        blurb="Storytelling: the line at the size of the frame, nothing else."),
     "downpour": _theme(
         "downpour", "Downpour", "#1b2430", "#e9eef2", "#7fb2d6", "#4a6a86",
         ground="arch", light="vignette", captions="bottom", layout="story",
         effect="rain",
+        composition="card",
         family="story",
-        blurb="Rain on a dark window. No figure, words at the bottom."),
+        blurb="Rain on a dark window, the words on a card in the middle."),
     "snowfall": _theme(
         "snowfall", "Snowfall", "#243044", "#eef2f7", "#9fc4e8", "#6f86a8",
         ground="arch", light="glow", captions="bottom", layout="story",
         effect="snow",
+        composition="watermark",
         family="story",
-        blurb="Snow drifting through a cold blue night."),
+        blurb="Snow, and the picture faded back behind the words."),
     "hearth": _theme(
         "hearth", "Hearth", "#2a1a16", "#f5e9de", "#e0743a", "#b3924f",
         ground="arch", light="glow", captions="bottom", layout="story",
         effect="embers",
+        composition="band",
         family="story",
-        blurb="Warm dark room, embers rising. For anything with heat in it."),
+        blurb="Warm dark room, embers rising, the line across a solid bar."),
     "attic": _theme(
         "attic", "Attic", "#efe4cf", "#241d14", "#c08a3e", "#6f7f6a",
         ground="rays", light="warm", captions="bottom", layout="story",
         effect="dust",
+        composition="split",
         family="story",
-        blurb="Daylight through a dusty room, motes hanging in it."),
+        blurb="Daylight and dust, a colour block down one side."),
     "album": _theme(
         "album", "Your pictures", "#101218", "#f2f0ec", "#d8b06a", "#6f8fb0",
         ground="plain", light="vignette", captions="bottom", layout="photo",
+        composition="icon",
         family="story",
         blurb="Your own images, one per beat, fitted to the frame."),
     "studio": _theme(
@@ -245,6 +252,17 @@ DRESSING_LABELS = {"none": "Nothing", "board": "A board on the wall",
 # grouped and one group is shown at a time. The grouping is by what the
 # template is for rather than by colour: a pale page with a headline and a
 # dark room with rain in it are different jobs, not different palettes.
+# The shape of a frame with no cast in it. A picture in the middle is what
+# was asked for, so most of these are frames for one; the type led shapes are
+# there for a template that is about what is said rather than what it is
+# about, and for a line that named nothing the vocabulary knows.
+COMPOSITION_LABELS = {"icon": "The picture, centred",
+                      "card": "The picture, mounted on a card",
+                      "watermark": "The picture faded behind the words",
+                      "band": "The words across a solid bar",
+                      "split": "A colour block down one side",
+                      "type": "The words at the size of the frame"}
+
 FAMILY_LABELS = {"quiet": "Quiet", "bold": "Bold", "story": "Storytelling"}
 
 FAMILY_BLURBS = {
@@ -271,7 +289,7 @@ CAPTION_LABELS = {"headline": "A headline beside the speaker",
 
 
 def resolve(name, light=None, lettering=None, dressing=None,
-            captions=None, effect=None):
+            captions=None, effect=None, composition=None):
     """The template to render with, after any choices made on top of it."""
     T = THEMES.get(name, THEMES[DEFAULT_THEME])
     changes = {}
@@ -285,4 +303,6 @@ def resolve(name, light=None, lettering=None, dressing=None,
         changes["captions"] = captions
     if effect in EFFECT_LABELS:
         changes["effect"] = effect
+    if composition in COMPOSITION_LABELS:
+        changes["composition"] = composition
     return replace(T, **changes) if changes else T

@@ -19,6 +19,7 @@ correctly without per-scene tweaking.
 import textwrap
 
 import numpy as np
+from matplotlib.patches import FancyBboxPatch, Rectangle
 
 from . import backgrounds as bg
 from . import characters as ch
@@ -293,41 +294,151 @@ def story_symbol(ax, name, T):
     sym.draw(ax, name, T, *STORY_SYMBOL)
 
 
-def scene_story(fig, b, T):
-    """No figure at all: a lit ground, the symbol the line named, and the
-    words at the bottom.
+# ----------------------------------------------------------------------
+# STORY COMPOSITIONS
+#
+# A frame with no cast in it needs a shape of its own or every template is
+# the same template in a different colour. An icon in the middle was the
+# first and only one, and it has a second problem: whatever the icon happens
+# to be becomes what the template looks like, so a set of them all previewing
+# a banknote reads as six ways of making a video about money.
+#
+# These are shapes rather than subjects. Each one is built from the headline,
+# which any script has, so none of them is about anything in particular.
 
-    The drawn cast is what makes this look like an explainer. Plenty of what
-    people watch has nobody in it: a background, something moving on it, and
-    the narration carried by the voice and a caption. This is that shape, and
-    it is the one layout where the middle of the frame is never text.
-    """
-    ax = _stage(fig, b, T, GROUND_Y, 0.5)
+
+def _story_head(b, width=16, lines=4):
+    text = (b.get("caption") or "").strip().upper()
+    return "\n".join(textwrap.wrap(text, width)[:lines]) if text else ""
+
+
+def comp_icon(fig, ax, b, T):
+    """The symbol the line named, in the middle. The one composition that is
+    about the subject rather than about the words."""
     name = b.get("symbol")
-    head = (b.get("caption") or "").strip()
-    # A symbol alone on a gradient is an empty frame held for four seconds.
-    # What carries a shot like this elsewhere is a short bold line with the
-    # picture above it and the spoken words rolling underneath, so the frame
-    # has three things in it at three sizes rather than one thing in the
-    # middle. Without a symbol the headline moves up and takes the space.
-    # Symbol or headline, never both: the headline comes from the first
-    # sentence and the first caption piece comes from the same place, so
-    # showing them together is the same words twice in two sizes. A line with
-    # nothing in the vocabulary gets the headline instead of an empty frame.
-    # with rolling captions the symbol is drawn on each caption layer instead,
-    # so that it can change as the words do
     if name and not b.get("rolling"):
         story_symbol(ax, name, T)
-    elif head and not name:
-        t = fig.text(0.5, 0.52,
-                     "\n".join(textwrap.wrap(head.upper(), 18)[:3]),
-                     ha="center", va="center", fontsize=62, color=T.ink,
-                     fontweight="bold", linespacing=1.12)
-        _fit(fig, t, 1420)
+    elif not name:
+        comp_type(fig, ax, b, T)
+
+
+def comp_type(fig, ax, b, T):
+    """The headline at the size of the frame. Works for any topic because it
+    is only ever the words the script already wrote."""
+    head = _story_head(b, 14, 4)
+    if not head:
+        return
+    t = fig.text(0.5, 0.54, head, ha="center", va="center", fontsize=104,
+                 color=T.ink, fontweight="bold", linespacing=1.06)
+    _fit(fig, t, 1640)
+    stagecraft.letter(t, T)
+
+
+def comp_card(fig, ax, b, T):
+    """A panel with the picture mounted in it, the way a print is framed.
+
+    The panel is what makes the middle of the frame feel composed rather than
+    empty. What sits in it is the symbol when the line named one, and the
+    words only when it did not.
+    """
+    step = 0.16 if _pale(T) else 0.13
+    ax.add_patch(FancyBboxPatch(
+        (-9.6, 3.6), 19.2, 10.8, zorder=1,
+        boxstyle="round,pad=0,rounding_size=0.9",
+        facecolor=mix(T.bg, "#000000" if _pale(T) else "#ffffff", step),
+        edgecolor=mix(T.ink, T.bg, 0.45), linewidth=3.6))
+    name = b.get("symbol")
+    if name and not b.get("rolling"):
+        sym.draw(ax, name, T, 0.0, GROUND_Y + 6.0, 3.4)
+    elif not name:
+        head = _story_head(b, 17, 4)
+        if head:
+            t = fig.text(0.5, 0.545, head, ha="center", va="center",
+                         fontsize=70, color=T.ink, fontweight="bold",
+                         linespacing=1.12)
+            _fit(fig, t, 1180)
+
+
+def comp_band(fig, ax, b, T):
+    """A solid bar across the frame carrying the words. The most graphic of
+    them and the one that reads at thumbnail size."""
+    ax.add_patch(Rectangle((-16, 5.6), 32, 7.4, zorder=1, facecolor=T.a1,
+                           edgecolor="none"))
+    head = _story_head(b, 20, 3)
+    if head:
+        t = fig.text(0.5, 0.515, head, ha="center", va="center", fontsize=78,
+                     color=_on(T.a1), fontweight="bold", linespacing=1.10)
+        _fit(fig, t, 1700)
+
+
+def comp_split(fig, ax, b, T):
+    """A colour block down one side and the words in the rest of it, so the
+    frame has a weight to it rather than being centred on nothing."""
+    ax.add_patch(Rectangle((-16, -1), 11.5, 18, zorder=1, facecolor=T.a2,
+                           edgecolor="none"))
+    head = _story_head(b, 15, 4)
+    if head:
+        t = fig.text(0.66, 0.54, head, ha="center", va="center", fontsize=72,
+                     color=T.ink, fontweight="bold", linespacing=1.10)
+        _fit(fig, t, 1000)
+
+
+def comp_watermark(fig, ax, b, T):
+    """The symbol blown up and faded back behind the words, so the picture is
+    a texture rather than the subject of the shot."""
+    name = b.get("symbol")
+    if name:
+        mark = fig.add_axes([0, 0, 1, 1], zorder=0)
+        mark.axis("off")
+        mark.set_xlim(X_MIN, X_MIN + STAGE_W)
+        mark.set_ylim(Y_MIN, Y_MIN + STAGE_H)
+        mark.patch.set_alpha(0)
+        sym.draw(mark, name, T, 0.0, GROUND_Y + 5.4, 8.2)
+        for art in list(mark.patches) + list(mark.lines) + list(mark.collections):
+            art.set_alpha(0.16)
+    head = _story_head(b, 16, 4)
+    if head:
+        t = fig.text(0.5, 0.54, head, ha="center", va="center", fontsize=86,
+                     color=T.ink, fontweight="bold", linespacing=1.08)
+        _fit(fig, t, 1520)
         stagecraft.letter(t, T)
+
+
+COMPOSITIONS = {"icon": comp_icon, "type": comp_type, "card": comp_card,
+                "band": comp_band, "split": comp_split,
+                "watermark": comp_watermark}
+
+# A composition built out of the headline already has the words in it, large.
+# Running the caption underneath as well prints the opening of the beat twice
+# in two sizes, which reads as a bug rather than as a subtitle. The words are
+# still in the subtitle track either way.
+TYPE_LED = ("type", "band", "split")
+
+
+def _pale(T):
+    from .themes import _luminance
+    return _luminance(T.bg) > 0.45
+
+
+def _on(colour):
+    """Ink that can be read on a solid block of `colour`."""
+    from .themes import _luminance
+    return "#14120d" if _luminance(colour) > 0.42 else "#fdfcf9"
+
+
+def scene_story(fig, b, T):
+    """No figure at all: a lit ground, a composition, and the words.
+
+    The drawn cast is what makes this look like an explainer. Plenty of what
+    people watch has nobody in it, and this is that shape.
+    """
+    ax = _stage(fig, b, T, GROUND_Y, 0.5)
+    shape = getattr(T, "composition", "icon")
+    COMPOSITIONS.get(shape, comp_icon)(fig, ax, b, T)
     # this layout has no headline slot beside a figure, so "headline" and
     # "bottom" both mean the bar. Only "none" leaves the frame silent.
-    if getattr(T, "captions", "headline") != "none" and not b.get("rolling"):
+    if (getattr(T, "captions", "headline") != "none"
+            and shape not in TYPE_LED and not b.get("rolling")):
         bottom_caption(fig, T, caption_piece(b))
 
 

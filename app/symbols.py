@@ -26,7 +26,8 @@ colours, so a symbol never looks pasted on.
 import re
 
 import numpy as np
-from matplotlib.patches import Circle, FancyBboxPatch, Polygon, Rectangle
+from matplotlib.patches import (Arc, Circle, FancyBboxPatch, Polygon,
+                                Rectangle, Wedge)
 
 from .themes import mix
 
@@ -41,8 +42,9 @@ from .themes import mix
 #
 # Words with a common second meaning are left out rather than weakened:
 # "pay" is in "pay attention", "fine" is in "that is fine", "return" is in
-# "return home", "pound" is in "a pound of flour". "payday" and "penalty"
-# carry the same idea and cannot misfire.
+# "return home", "pound" is in "a pound of flour", "moved" is in "nobody
+# moved", "left" is in "turn left", "nobody" is a negation and not a crowd.
+# "payday", "penalty" and "abroad" carry the same ideas and cannot misfire.
 VOCABULARY = [
     ("money",
      ("money", "cash", "salary", "paycheck", "paycheque", "wage", "wages",
@@ -88,6 +90,70 @@ VOCABULARY = [
      ("mistake", "mistakes", "danger", "dangerous", "risky", "beware",
       "warning", "trap", "scam", "penalty", "fines"),
      ("wrong", "risk", "risks", "careful")),
+    ("person",
+     ("someone", "somebody", "person", "yourself", "myself", "himself",
+      "herself", "stranger", "neighbour", "neighbor"),
+     ("man", "woman", "people", "friend", "friends", "family")),
+    ("group",
+     ("everyone", "everybody", "crowd", "team", "audience", "community",
+      "company", "companies", "employer", "employers", "colleagues"),
+     ("together", "others", "anyone")),
+    ("question",
+     ("question", "questions", "why", "wonder", "wondered", "asking",
+      "unclear", "confusing", "confused"),
+     ("ask", "asked", "maybe", "perhaps")),
+    ("yes",
+     ("correct", "works", "agreed", "approved", "passed",
+      "succeeded", "success"), ("yes", "sure", "good", "better")),
+    ("no",
+     ("refused", "rejected", "failed", "failure", "denied", "cancelled",
+      "canceled", "stopped", "banned"), ("no", "never", "cannot", "without")),
+    ("book",
+     ("book", "books", "chapter", "story", "stories", "read", "reading",
+      "study", "studying", "school", "college", "university", "course",
+      "lesson", "lessons", "history"), ("wrote", "written", "page", "pages")),
+    ("phone",
+     ("phone", "phones", "called", "calling", "text", "texted", "app",
+      "apps", "mobile"), ("call", "ring", "rang")),
+    ("screen",
+     ("computer", "laptop", "website", "online", "internet", "software",
+      "browser", "screen", "video", "videos", "channel"),
+     ("watch", "watched", "watching", "click", "clicked")),
+    ("heart",
+     ("love", "loved", "health", "healthy", "doctor", "hospital", "heart",
+      "care", "kindness"), ("feel", "felt", "happy", "sad", "hurt")),
+    ("place",
+     ("city", "town", "country", "street", "journey", "travel", "travelled",
+      "traveled", "abroad", "airport", "distance"),
+     ("went", "going", "arrive", "arrived", "far", "near")),
+    ("work",
+     ("job", "jobs", "work", "working", "worked", "career", "office",
+      "manager", "boss", "interview", "hired", "meeting"),
+     ("business", "role", "shift")),
+    ("calendar",
+     ("schedule", "appointment", "monday", "tuesday", "wednesday",
+      "thursday", "friday", "saturday", "sunday", "birthday", "plan",
+      "planned", "planning"), ("date", "dates", "booked")),
+    ("search",
+     ("search", "searched", "searching", "looked", "looking", "found",
+      "finding", "research", "investigate", "evidence", "proof"),
+     ("find", "check", "checked", "spot", "spotted")),
+    ("lock",
+     ("password", "security", "secure", "private", "privacy", "safe",
+      "safety", "protect", "protected", "locked", "account", "accounts"),
+     ("lock", "key", "keys", "shut")),
+    ("star",
+     ("best", "favourite", "favorite", "award", "awards", "rated", "rating",
+      "quality", "premium", "review", "reviews"),
+     ("great", "brilliant", "excellent", "top")),
+    ("target",
+     ("goal", "goals", "target", "targets", "aim", "purpose",
+      "strategy", "ambition", "achieve", "achieved"),
+     ("want", "wanted", "trying", "tried")),
+    ("chat",
+     ("conversation", "argued", "argument", "explained", "explaining",
+      "told", "telling", "advice", "advise", "interrupted"),
+     ("said", "says", "talk", "talked", "talking", "speak", "spoke")),
 ]
 
 SYMBOLS = tuple(name for name, _, _ in VOCABULARY)
@@ -257,8 +323,210 @@ def warning(ax, T, x, y, s):
          LW * s * 0.4, z=8)
 
 
+def _ring(ax, T, x, y, s, fill):
+    """The disc several of the signs are set in."""
+    ink = _pen(T)[0]
+    _add(ax, Circle((x, y), 0.88 * s, facecolor=fill), ink, LW * s * 1.1)
+    return ink
+
+
+def _bust(ax, T, x, y, s, scale=1.0):
+    """Head and shoulders, the shape a person is drawn as at this size."""
+    ink, warm, _ = _pen(T)
+    _add(ax, Circle((x, y + 0.34 * s * scale), 0.34 * s * scale,
+                    facecolor=warm), ink, LW * s * 0.9 * scale)
+    _add(ax, Wedge((x, y - 0.30 * s * scale), 0.62 * s * scale, 0, 180,
+                   facecolor=warm), ink, LW * s * 0.9 * scale)
+
+
+def person(ax, T, x, y, s):
+    """One figure, for a line about somebody."""
+    _bust(ax, T, x, y, s, 1.5)
+
+
+def group(ax, T, x, y, s):
+    """Two figures, for a line about people rather than a person."""
+    _bust(ax, T, x - 0.52 * s, y - 0.08 * s, s, 1.05)
+    _bust(ax, T, x + 0.52 * s, y - 0.08 * s, s, 1.05)
+
+
+def question(ax, T, x, y, s):
+    ink = _ring(ax, T, x, y, s, _pen(T)[2])
+    ax.text(x, y - 0.06 * s, "?", ha="center", va="center", color=ink,
+            fontsize=62 * s, fontweight="bold", zorder=9)
+
+
+def yes(ax, T, x, y, s):
+    ink = _ring(ax, T, x, y, s, _pen(T)[1])
+    ax.plot([x - 0.40 * s, x - 0.10 * s, x + 0.44 * s],
+            [y + 0.02 * s, y - 0.32 * s, y + 0.38 * s], color=ink,
+            lw=LW * s * 1.5, solid_capstyle="round",
+            solid_joinstyle="round", zorder=9)
+
+
+def no(ax, T, x, y, s):
+    ink = _ring(ax, T, x, y, s, _pen(T)[2])
+    for dx in (-1, 1):
+        ax.plot([x - dx * 0.34 * s, x + dx * 0.34 * s],
+                [y - 0.34 * s, y + 0.34 * s], color=ink, lw=LW * s * 1.5,
+                solid_capstyle="round", zorder=9)
+
+
+def book(ax, T, x, y, s):
+    """An open book, which reads as reading where a closed one reads as a
+    brick."""
+    ink, warm, cool = _pen(T)
+    for side in (-1, 1):
+        _add(ax, Polygon([(x, y - 0.62 * s), (x + side * 0.92 * s, y - 0.44 * s),
+                          (x + side * 0.92 * s, y + 0.58 * s), (x, y + 0.40 * s)],
+                         closed=True, facecolor=warm if side < 0 else cool),
+             ink, LW * s)
+    ax.plot([x, x], [y - 0.62 * s, y + 0.40 * s], color=ink, lw=LW * s * 0.8,
+            solid_capstyle="round", zorder=9)
+
+
+def phone(ax, T, x, y, s):
+    ink, _, cool = _pen(T)
+    _add(ax, FancyBboxPatch((x - 0.50 * s, y - 0.88 * s), 1.0 * s, 1.76 * s,
+                            facecolor=cool,
+                            boxstyle="round,pad=0,rounding_size=0.16"),
+         ink, LW * s)
+    ax.plot([x - 0.16 * s, x + 0.16 * s], [y + 0.66 * s, y + 0.66 * s],
+            color=ink, lw=LW * s * 0.6, solid_capstyle="round", zorder=9)
+    _add(ax, Circle((x, y - 0.62 * s), 0.11 * s, facecolor=ink), ink,
+         LW * s * 0.4, z=9)
+
+
+def screen(ax, T, x, y, s):
+    ink, _, cool = _pen(T)
+    _add(ax, FancyBboxPatch((x - 0.95 * s, y - 0.30 * s), 1.9 * s, 1.24 * s,
+                            facecolor=cool,
+                            boxstyle="round,pad=0,rounding_size=0.12"),
+         ink, LW * s)
+    ax.plot([x - 0.55 * s, x + 0.55 * s], [y - 0.72 * s, y - 0.72 * s],
+            color=ink, lw=LW * s * 1.1, solid_capstyle="round", zorder=9)
+    ax.plot([x, x], [y - 0.30 * s, y - 0.72 * s], color=ink, lw=LW * s * 0.9,
+            solid_capstyle="round", zorder=8)
+
+
+def heart(ax, T, x, y, s):
+    ink, warm, _ = _pen(T)
+    for dx in (-1, 1):
+        _add(ax, Circle((x + dx * 0.36 * s, y + 0.30 * s), 0.46 * s,
+                        facecolor=warm), ink, LW * s * 0.9, z=6)
+    _add(ax, Polygon([(x - 0.79 * s, y + 0.36 * s), (x + 0.79 * s, y + 0.36 * s),
+                      (x, y - 0.80 * s)], closed=True, facecolor=warm),
+         ink, LW * s * 0.9, z=7)
+    _add(ax, Circle((x - 0.36 * s, y + 0.30 * s), 0.40 * s, facecolor=warm),
+         warm, 0.1, z=8)
+    _add(ax, Circle((x + 0.36 * s, y + 0.30 * s), 0.40 * s, facecolor=warm),
+         warm, 0.1, z=8)
+
+
+def place(ax, T, x, y, s):
+    """A map pin, which says somewhere without saying where."""
+    ink, warm, _ = _pen(T)
+    _add(ax, Polygon([(x - 0.62 * s, y + 0.22 * s),
+                      (x + 0.62 * s, y + 0.22 * s), (x, y - 0.86 * s)],
+                     closed=True, facecolor=warm), ink, LW * s, z=6)
+    _add(ax, Circle((x, y + 0.30 * s), 0.64 * s, facecolor=warm), ink,
+         LW * s, z=7)
+    _add(ax, Circle((x, y + 0.30 * s), 0.24 * s, facecolor=T.bg), ink,
+         LW * s * 0.8, z=8)
+
+
+def work(ax, T, x, y, s):
+    """A case, for a line about a job."""
+    ink, _, cool = _pen(T)
+    _add(ax, FancyBboxPatch((x - 0.95 * s, y - 0.62 * s), 1.9 * s, 1.12 * s,
+                            facecolor=cool,
+                            boxstyle="round,pad=0,rounding_size=0.14"),
+         ink, LW * s, z=7)
+    ax.plot([x - 0.34 * s, x - 0.34 * s, x + 0.34 * s, x + 0.34 * s],
+            [y + 0.50 * s, y + 0.84 * s, y + 0.84 * s, y + 0.50 * s],
+            color=ink, lw=LW * s * 0.9, solid_capstyle="round",
+            solid_joinstyle="round", zorder=6)
+    ax.plot([x - 0.95 * s, x + 0.95 * s], [y + 0.02 * s, y + 0.02 * s],
+            color=ink, lw=LW * s * 0.7, zorder=8)
+
+
+def calendar(ax, T, x, y, s):
+    ink, _, cool = _pen(T)
+    _add(ax, FancyBboxPatch((x - 0.86 * s, y - 0.82 * s), 1.72 * s, 1.54 * s,
+                            facecolor=cool,
+                            boxstyle="round,pad=0,rounding_size=0.12"),
+         ink, LW * s)
+    ax.plot([x - 0.86 * s, x + 0.86 * s], [y + 0.26 * s, y + 0.26 * s],
+            color=ink, lw=LW * s * 0.9, zorder=9)
+    for dx in (-0.40, 0.40):
+        ax.plot([x + dx * s, x + dx * s], [y + 0.56 * s, y + 0.96 * s],
+                color=ink, lw=LW * s * 0.9, solid_capstyle="round", zorder=9)
+    for dx in (-0.42, 0.0, 0.42):
+        _add(ax, Circle((x + dx * s, y - 0.24 * s), 0.11 * s, facecolor=ink),
+             ink, LW * s * 0.3, z=9)
+
+
+def search(ax, T, x, y, s):
+    ink, _, cool = _pen(T)
+    _add(ax, Circle((x - 0.16 * s, y + 0.20 * s), 0.60 * s, facecolor=cool),
+         ink, LW * s * 1.2, z=8)
+    ax.plot([x + 0.28 * s, x + 0.82 * s], [y - 0.24 * s, y - 0.78 * s],
+            color=ink, lw=LW * s * 1.5, solid_capstyle="round", zorder=7)
+
+
+def lock(ax, T, x, y, s):
+    ink, warm, _ = _pen(T)
+    ax.add_patch(Arc((x, y + 0.26 * s), 0.94 * s, 0.94 * s, theta1=0,
+                     theta2=180, color=ink, lw=LW * s * 1.2, zorder=6))
+    for dx in (-0.47, 0.47):
+        ax.plot([x + dx * s, x + dx * s], [y + 0.26 * s, y - 0.04 * s],
+                color=ink, lw=LW * s * 1.2, zorder=6)
+    _add(ax, FancyBboxPatch((x - 0.76 * s, y - 0.78 * s), 1.52 * s, 0.92 * s,
+                            facecolor=warm,
+                            boxstyle="round,pad=0,rounding_size=0.12"),
+         ink, LW * s, z=7)
+
+
+def star(ax, T, x, y, s):
+    ink, warm, _ = _pen(T)
+    pts = []
+    for k in range(10):
+        a = np.pi / 2 + k * np.pi / 5
+        r = (0.92 if k % 2 == 0 else 0.40) * s
+        pts.append((x + r * np.cos(a), y + r * np.sin(a)))
+    _add(ax, Polygon(pts, closed=True, facecolor=warm), ink, LW * s)
+
+
+def target(ax, T, x, y, s):
+    ink, warm, cool = _pen(T)
+    # the big ring has to go underneath, or it covers the ones inside it
+    for r, fill in ((0.90, cool), (0.56, T.bg), (0.22, warm)):
+        _add(ax, Circle((x, y), r * s, facecolor=fill), ink, LW * s * 0.95,
+             z=6 + int((1 - r) * 10))
+
+
+def chat(ax, T, x, y, s):
+    ink, warm, cool = _pen(T)
+    _add(ax, FancyBboxPatch((x - 0.92 * s, y - 0.22 * s), 1.6 * s, 1.0 * s,
+                            facecolor=warm,
+                            boxstyle="round,pad=0,rounding_size=0.22"),
+         ink, LW * s, z=7)
+    _add(ax, Polygon([(x - 0.52 * s, y - 0.18 * s), (x - 0.14 * s, y - 0.18 * s),
+                      (x - 0.46 * s, y - 0.74 * s)], closed=True,
+                     facecolor=warm), ink, LW * s, z=6)
+    _add(ax, FancyBboxPatch((x - 0.30 * s, y + 0.30 * s), 1.2 * s, 0.76 * s,
+                            facecolor=cool,
+                            boxstyle="round,pad=0,rounding_size=0.20"),
+         ink, LW * s, z=8)
+
+
 DRAW = {"money": money, "growth": growth, "loss": loss, "time": time,
-        "mail": mail, "home": home, "idea": idea, "warning": warning}
+        "mail": mail, "home": home, "idea": idea, "warning": warning,
+        "person": person, "group": group, "question": question, "yes": yes,
+        "no": no, "book": book, "phone": phone, "screen": screen,
+        "heart": heart, "place": place, "work": work, "calendar": calendar,
+        "search": search, "lock": lock, "star": star, "target": target,
+        "chat": chat}
 
 
 def draw(ax, name, T, x, y, s):
