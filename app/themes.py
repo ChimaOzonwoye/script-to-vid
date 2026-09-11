@@ -175,20 +175,20 @@ THEMES.update({
         blurb="For money: a lit desk, a chart on the wall behind."),
     "nightfall": _theme(
         "nightfall", "Nightfall", "#171a2b", "#eeeaf2", "#c9a2e8", "#5fa8d3",
-        ground="plain", light="vignette", lettering="plain",
+        ground="bars", light="vignette", lettering="plain",
         captions="bottom", layout="story",
         family="story",
         blurb="Storytelling: no figure, the words at the bottom, the middle "
               "left for the picture."),
     "downpour": _theme(
         "downpour", "Downpour", "#1b2430", "#e9eef2", "#7fb2d6", "#4a6a86",
-        ground="plain", light="vignette", captions="bottom", layout="story",
+        ground="arch", light="vignette", captions="bottom", layout="story",
         effect="rain",
         family="story",
         blurb="Rain on a dark window. No figure, words at the bottom."),
     "snowfall": _theme(
         "snowfall", "Snowfall", "#243044", "#eef2f7", "#9fc4e8", "#6f86a8",
-        ground="plain", light="glow", captions="bottom", layout="story",
+        ground="arch", light="glow", captions="bottom", layout="story",
         effect="snow",
         family="story",
         blurb="Snow drifting through a cold blue night."),
@@ -200,7 +200,7 @@ THEMES.update({
         blurb="Warm dark room, embers rising. For anything with heat in it."),
     "attic": _theme(
         "attic", "Attic", "#efe4cf", "#241d14", "#c08a3e", "#6f7f6a",
-        ground="plain", light="warm", captions="bottom", layout="story",
+        ground="rays", light="warm", captions="bottom", layout="story",
         effect="dust",
         family="story",
         blurb="Daylight through a dusty room, motes hanging in it."),

@@ -39,9 +39,11 @@ from matplotlib.colors import to_rgb
 from PIL import Image
 
 from . import animate
+from . import captions
 from . import effects
 from . import images
 from . import stagecraft
+from . import symbols
 from .themes import mix
 from .voices import DEFAULT_VOICE as VOICE, DEFAULT_RATE as RATE
 W, H = 1920, 1080
@@ -607,7 +609,7 @@ def _file_hash(path):
     return hashlib.sha1(Path(path).read_bytes()).hexdigest() if Path(path).exists() else "none"
 
 
-def _prepared(beats, project):
+def _prepared(beats, project, theme=None):
     """Copy of the beats with everything a slide depends on made explicit,
     so hashing a beat covers all of its inputs."""
     out = []
@@ -621,13 +623,49 @@ def _prepared(beats, project):
             # the path is what draws it, the hash is what makes replacing a
             # picture under the same name rebuild the segment
             b["image_hash"] = _file_hash(Path(b["image"]))
+        if theme is not None and getattr(theme, "captions", "headline") == "bottom":
+            pieces = captions.split(b.get("say"))
+            # one piece is not rolling, it is a caption, and the slide can
+            # carry it without an overlay
+            if len(pieces) > 1:
+                b["rolling"] = pieces
         out.append(b)
     return out
 
 
-def animated(beat):
-    """Whether this beat has a character in it to blink and speak."""
+def caption_frame(text, theme, dst, symbol=None):
+    """One caption piece on a transparent frame, ready to lay over a beat.
+
+    A story frame carries its symbol here too, not in the slide underneath.
+    That is what lets the picture follow the words: the beat says several
+    things and each piece can name a different one, so a paragraph about a
+    letter and then about money shows a letter and then money instead of one
+    icon held for fifteen seconds.
+    """
     from . import scenes
+    fig = plt.figure(figsize=(W / 100, H / 100), dpi=100)
+    fig.patch.set_alpha(0)
+    if symbol:
+        ax = scenes.bare_stage(fig)
+        scenes.story_symbol(ax, symbol, theme)
+    scenes.bottom_caption(fig, theme, text)
+    fig.savefig(dst, transparent=True, facecolor="none")
+    plt.close(fig)
+    return dst
+
+
+def animated(beat, theme=None):
+    """Whether this beat has a character in it to blink and speak.
+
+    The template gets a say because it can take the cast away: an undirected
+    beat is drawn as a story or a photo frame when the look asks for one, and
+    there is then no mouth to move. Without this check those beats were
+    rendered six times over, once per mouth and eye position, for a face that
+    is never drawn, and then played back as a sequence of identical frames.
+    """
+    from . import scenes
+    if theme is not None and getattr(theme, "layout", "presenter") != "presenter":
+        return False
     return beat["visual"] in scenes.VISUALS
 
 
@@ -762,7 +800,7 @@ def encode_part(dst, segs, work, logo, logo_until, bed, bed_at, length,
 def plan(project, beats, theme, voice=VOICE, rate=RATE):
     """What a render would reuse, so the page can say it before Generate."""
     project = Path(project)
-    beats = _prepared(beats, project)
+    beats = _prepared(beats, project, theme)
     vdir = project / "cache" / "voice"
     sdir = project / "cache" / "segments"
     voices_cached = segs_cached = 0
@@ -802,7 +840,7 @@ def render_video(project, beats, theme, voice=VOICE, rate=RATE, progress=None):
         if progress:
             progress(stage, done, total)
 
-    beats = _prepared(beats, project)
+    beats = _prepared(beats, project, theme)
     logo = project / "logo.png"
     music = project / "music.mp3"
     if logo.exists():
@@ -834,7 +872,7 @@ def render_video(project, beats, theme, voice=VOICE, rate=RATE, progress=None):
         b = beats[i]
         if b["visual"] == "outro":
             b = {**b, "logo_big": str(work / "logo_big.png")}
-        if animated(b):
+        if animated(b, theme):
             for eyes, mouth in animate.VARIANTS:
                 p = variant(i, eyes, mouth)
                 if not p.exists():
@@ -862,7 +900,7 @@ def render_video(project, beats, theme, voice=VOICE, rate=RATE, progress=None):
         # fraction of an output pixel, and the downscale averages it away.
         prescale = f"scale={W * PRESCALE}:{H * PRESCALE}:flags=bilinear,"
         pan = f":x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s={W}x{H}:fps={FPS}"
-        if animated(beats[i]):
+        if animated(beats[i], theme):
             mouths = [*["closed"] * int(round(LEAD_SILENCE * FPS)),
                       *animate.cached_track(snd, FPS, mdir)]
             mouths = (mouths + ["closed"] * frames)[:frames]
@@ -888,16 +926,37 @@ def render_video(project, beats, theme, voice=VOICE, rate=RATE, progress=None):
         # not dragged around by the pan and it does fade out with everything
         # else. It is a short loop of transparent frames played on repeat, so
         # a ten minute video costs one loop.
-        weather = ""
-        extra = []
+        # Layers over the picture, in order: the weather, then the caption
+        # pieces. Inputs are always slide, then narration, then whatever
+        # these add, whether the slide is one image or a sequence of them.
+        extra, over, nxt = [], "", 2
         if fx_dir:
-            extra = ["-framerate", str(FPS), "-stream_loop", "-1",
-                     "-i", str(fx_dir / "frame_%03d.png")]
-            # the inputs are always slide, then narration, then weather,
-            # whether the slide is one image or a sequence of them
-            weather = (f",format=rgba[base];[2:v]"
-                       f"scale={W}:{H}[wx];[base][wx]overlay=0:0:shortest=0")
-        vf = (f"[0:v]{zoom}{weather},fade=t=in:st=0:d={FADE}:color=0x{fade_col},"
+            extra += ["-framerate", str(FPS), "-stream_loop", "-1",
+                      "-i", str(fx_dir / "frame_%03d.png")]
+            over += (f"[{nxt}:v]scale={W}:{H}[wx];[base][wx]"
+                     f"overlay=0:0:shortest=0[base];")
+            nxt += 1
+        pieces = beats[i].get("rolling")
+        if pieces:
+            # each piece is its own transparent frame, shown for its share of
+            # the beat. Overlaying rather than drawing them into the slide is
+            # what keeps a speaking beat at six slides instead of six times
+            # however many pieces the paragraph came to.
+            spans = captions.timings(pieces, LEAD_SILENCE, spoken)
+            story = getattr(theme, "layout", "presenter") == "story"
+            for k, (piece, (a, bb)) in enumerate(zip(pieces, spans)):
+                cf = work / f"cap_{i:02d}_{k:02d}.png"
+                # each piece gets the symbol its own words asked for, falling
+                # back to the beat's so the middle never goes empty mid line
+                mark = (symbols.match(piece) or beats[i].get("symbol")) \
+                    if story else None
+                caption_frame(piece, theme, cf, symbol=mark)
+                extra += ["-i", str(cf)]
+                over += (f"[base][{nxt}:v]overlay=0:0:"
+                         f"enable='between(t,{a:.3f},{bb:.3f})'[base];")
+                nxt += 1
+        layers = f",format=rgba[base];{over}[base]null" if over else ""
+        vf = (f"[0:v]{zoom}{layers},fade=t=in:st=0:d={FADE}:color=0x{fade_col},"
               f"fade=t=out:st={d - FADE:.3f}:d={FADE}:color=0x{fade_col},"
               f"format=yuv420p[v]")
         # lead-in silence stops the first consonant being clipped by mp3 padding

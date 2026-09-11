@@ -23,6 +23,7 @@ import numpy as np
 from . import backgrounds as bg
 from . import characters as ch
 from . import stagecraft
+from . import captions
 from . import symbols as sym
 from .themes import mix
 
@@ -209,22 +210,41 @@ def presenter_x(side):
 # Where the words are put when the template does not want them across the
 # middle of the frame. A caption bar sits below the action, which is where a
 # viewer looks for a subtitle, and it is small enough to read as one.
-CAPTION_BAR_Y = 0.085
+CAPTION_BAR_Y = 0.045
+
+
+def caption_piece(b):
+    """The words the slide itself should carry.
+
+    A beat whose paragraph was split into pieces has them overlaid instead,
+    and this is only reached when there is one piece, or when something is
+    drawing a slide outside a render, like the template picker. Taking the
+    first piece rather than the whole line means a long one is cut at a word
+    boundary rather than disappearing off the bottom of the frame.
+    """
+    pieces = captions.split(b.get("say"))
+    return pieces[0] if pieces else ""
 
 
 def bottom_caption(fig, T, text):
-    """The spoken line, small, at the bottom, the way a subtitle is set."""
-    line = " ".join((text or "").split())
+    """One caption piece, small, at the bottom, the way a subtitle is set.
+
+    This takes a piece rather than the whole beat. A paragraph set here runs
+    off the bottom of the frame, and the answers to that are all bad: shrink
+    it and nobody can read it, trim it and the picture stops saying what the
+    voice is saying. captions.split does the dividing.
+    """
+    line = captions.wrapped(" ".join((text or "").split()))
     if not line:
         return
-    t = fig.text(0.5, CAPTION_BAR_Y, "\n".join(textwrap.wrap(line, 62)),
-                 ha="center", va="center", fontsize=34, color=T.ink,
-                 linespacing=1.25)
-    # a plain shadow behind it whatever the template's lettering is, because
-    # small text over a busy ground is the one place this cannot be decorative
+    t = fig.text(0.5, CAPTION_BAR_Y, line, ha="center", va="bottom",
+                 fontsize=40, color=T.ink, linespacing=1.22)
+    # a halo in the page colour whatever the template's lettering is, because
+    # small text over rain or a photograph is the one place this cannot be
+    # decorative
     import matplotlib.patheffects as pe
-    t.set_path_effects([pe.withStroke(linewidth=7, foreground=T.bg)])
-    _fit(fig, t, 1680)
+    t.set_path_effects([pe.withStroke(linewidth=8, foreground=T.bg)])
+    _fit(fig, t, 1560)
 
 
 def _presenter_content(fig, T, b, side):
@@ -251,8 +271,26 @@ def _presenter_content(fig, T, b, side):
     if name:
         ax = fig.axes[0]
         sym.draw(ax, name, T, -side * 5.4, GROUND_Y + 6.0, 3.2)
-    if where == "bottom":
-        bottom_caption(fig, T, b.get("say"))
+    if where == "bottom" and not b.get("rolling"):
+        bottom_caption(fig, T, caption_piece(b))
+
+
+def bare_stage(fig):
+    """Stage axes with nothing on them, for drawing a layer to overlay."""
+    ax = fig.add_axes([0, 0, 1, 1])
+    ax.axis("off")
+    ax.set_xlim(X_MIN, X_MIN + STAGE_W)
+    ax.set_ylim(Y_MIN, Y_MIN + STAGE_H)
+    ax.patch.set_alpha(0)
+    return ax
+
+
+STORY_SYMBOL = (0.0, GROUND_Y + 6.0, 4.4)
+
+
+def story_symbol(ax, name, T):
+    """The symbol a story frame puts in the middle, wherever it is drawn."""
+    sym.draw(ax, name, T, *STORY_SYMBOL)
 
 
 def scene_story(fig, b, T):
@@ -266,12 +304,31 @@ def scene_story(fig, b, T):
     """
     ax = _stage(fig, b, T, GROUND_Y, 0.5)
     name = b.get("symbol")
-    if name:
-        sym.draw(ax, name, T, 0.0, GROUND_Y + 5.6, 4.8)
-    # this layout has no headline slot to put words in, so "headline" and
+    head = (b.get("caption") or "").strip()
+    # A symbol alone on a gradient is an empty frame held for four seconds.
+    # What carries a shot like this elsewhere is a short bold line with the
+    # picture above it and the spoken words rolling underneath, so the frame
+    # has three things in it at three sizes rather than one thing in the
+    # middle. Without a symbol the headline moves up and takes the space.
+    # Symbol or headline, never both: the headline comes from the first
+    # sentence and the first caption piece comes from the same place, so
+    # showing them together is the same words twice in two sizes. A line with
+    # nothing in the vocabulary gets the headline instead of an empty frame.
+    # with rolling captions the symbol is drawn on each caption layer instead,
+    # so that it can change as the words do
+    if name and not b.get("rolling"):
+        story_symbol(ax, name, T)
+    elif head and not name:
+        t = fig.text(0.5, 0.52,
+                     "\n".join(textwrap.wrap(head.upper(), 18)[:3]),
+                     ha="center", va="center", fontsize=62, color=T.ink,
+                     fontweight="bold", linespacing=1.12)
+        _fit(fig, t, 1420)
+        stagecraft.letter(t, T)
+    # this layout has no headline slot beside a figure, so "headline" and
     # "bottom" both mean the bar. Only "none" leaves the frame silent.
-    if getattr(T, "captions", "headline") != "none":
-        bottom_caption(fig, T, b.get("say"))
+    if getattr(T, "captions", "headline") != "none" and not b.get("rolling"):
+        bottom_caption(fig, T, caption_piece(b))
 
 
 def scene_photo(fig, b, T):
@@ -290,8 +347,8 @@ def scene_photo(fig, b, T):
     ax.imshow(mpimg.imread(path),
               extent=(X_MIN, X_MIN + STAGE_W, Y_MIN, Y_MIN + STAGE_H),
               aspect="auto", zorder=-5, interpolation="bilinear")
-    if getattr(T, "captions", "headline") != "none":
-        bottom_caption(fig, T, b.get("say"))
+    if getattr(T, "captions", "headline") != "none" and not b.get("rolling"):
+        bottom_caption(fig, T, caption_piece(b))
 
 
 def scene_presenter(fig, b, T):
