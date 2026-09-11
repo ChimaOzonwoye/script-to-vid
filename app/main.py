@@ -21,7 +21,8 @@ from PIL import Image
 from . import engine, joiner, projects, voices
 from .script_parser import parse
 from .themes import (THEMES, DEFAULT_THEME, page_palette, resolve,
-                     LIGHT_LABELS, LETTERING_LABELS, DRESSING_LABELS)
+                     LIGHT_LABELS, LETTERING_LABELS, DRESSING_LABELS,
+                     CAPTION_LABELS)
 
 HERE = Path(__file__).resolve().parent
 app = FastAPI(title="script to vid")
@@ -100,7 +101,7 @@ def _analysis(name, text):
     r = parse(text, keep=cfg["keep"])
     est = engine.estimate_seconds(r["beats"], cfg["rate"])
     theme = resolve(cfg["theme"], cfg["light"], cfg["lettering"],
-                    cfg["dressing"])
+                    cfg["dressing"], cfg["captions"])
     p = engine.plan(projects.path_of(name), r["beats"], theme,
                     cfg["voice"], cfg["rate"])
     m, s = divmod(int(est), 60)
@@ -148,7 +149,7 @@ def project_page(request: Request, name: str):
         return RedirectResponse("/", status_code=303)
     cfg = projects.settings(name)
     theme = resolve(cfg["theme"], cfg["light"], cfg["lettering"],
-                    cfg["dressing"])
+                    cfg["dressing"], cfg["captions"])
     p = projects.path_of(name)
     music = p / "music.mp3"
     msec = _music_seconds(music) if music.exists() else None
@@ -167,9 +168,11 @@ def project_page(request: Request, name: str):
         "lights": LIGHT_LABELS,
         "letterings": LETTERING_LABELS,
         "dressings": DRESSING_LABELS,
+        "captionings": CAPTION_LABELS,
         "light": cfg["light"],
         "lettering": cfg["lettering"],
         "dressing": cfg["dressing"],
+        "captions": cfg["captions"],
         "voices": voices.listing(),
         "voice": cfg["voice"],
         "rates": voices.RATES,
@@ -272,10 +275,11 @@ def preview_png(T):
 
 @app.get("/template/{key}.png")
 def template_preview(key: str, light: str = "", lettering: str = "",
-                     dressing: str = ""):
+                     dressing: str = "", captions: str = ""):
     if key not in THEMES:
         return JSONResponse({"error": "no such template"}, status_code=404)
-    return FileResponse(preview_png(resolve(key, light, lettering, dressing)),
+    return FileResponse(
+        preview_png(resolve(key, light, lettering, dressing, captions)),
                         media_type="image/png",
                         headers={"Cache-Control": "no-cache"})
 
@@ -289,19 +293,21 @@ def set_theme(name: str, theme: str = Form(...)):
         # lettering it ships with are part of what was just chosen, and
         # keeping the last template's spotlight over them is not
         projects.save_settings(name, {"theme": theme, "light": "",
-                                      "lettering": "", "dressing": ""})
+                                      "lettering": "", "dressing": "",
+                                      "captions": ""})
     return RedirectResponse(f"/p/{name}#look", status_code=303)
 
 
 @app.post("/p/{name}/look")
 def set_look(name: str, light: str = Form(""), lettering: str = Form(""),
-             dressing: str = Form("")):
+             dressing: str = Form(""), captions: str = Form("")):
     if not _valid(name):
         return RedirectResponse("/", status_code=303)
     projects.save_settings(name, {
         "light": light if light in LIGHT_LABELS else "",
         "lettering": lettering if lettering in LETTERING_LABELS else "",
-        "dressing": dressing if dressing in DRESSING_LABELS else ""})
+        "dressing": dressing if dressing in DRESSING_LABELS else "",
+        "captions": captions if captions in CAPTION_LABELS else ""})
     return RedirectResponse(f"/p/{name}#look", status_code=303)
 
 
@@ -464,7 +470,7 @@ async def generate(name: str, request: Request):
     if not r["beats"]:
         return fail("The script is empty. Write some narration first.")
     theme = resolve(cfg["theme"], cfg["light"], cfg["lettering"],
-                    cfg["dressing"])
+                    cfg["dressing"], cfg["captions"])
     RENDERS[name] = {"state": "running", "message": "Starting..."}
     threading.Thread(target=_render_worker,
                      args=(name, r["beats"], theme, cfg["voice"], cfg["rate"]),

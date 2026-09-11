@@ -926,8 +926,9 @@ def render_video(project, beats, theme, voice=VOICE, rate=RATE, progress=None):
         report("final", pi + 1, len(ranges))
 
     final = out_dir / "final.mp4"
+    joined = work / "joined_parts.mp4"
     if len(made) == 1:
-        shutil.copy(made[0], final)
+        shutil.copy(made[0], joined)
     else:
         # The parts were cut between beats and encoded to one profile, so the
         # join is a stream copy: no second generation of compression, and no
@@ -935,12 +936,24 @@ def render_video(project, beats, theme, voice=VOICE, rate=RATE, progress=None):
         lst = work / "parts.txt"
         lst.write_text("".join(f"file '{s.resolve()}'\n" for s in made))
         run(["ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", str(lst),
-             "-c", "copy", "-movflags", "+faststart", str(final)])
+             "-c", "copy", str(joined)])
 
-    with open(out_dir / "final.srt", "w") as f:
+    subs = out_dir / "final.srt"
+    with open(subs, "w") as f:
         for k, (a, bb, txt) in enumerate(srt, 1):
             body = "\n".join(textwrap.wrap(txt, 52))
             f.write(f"{k}\n{srt_time(a)} --> {srt_time(bb)}\n{body}\n\n")
 
-    return {"video": final, "srt": out_dir / "final.srt", "seconds": clock,
+    # The subtitles go into the file as a track of their own as well as being
+    # written beside it. A sidecar only helps somebody who knows to look for
+    # it; a track is the switch every player already has, which is what people
+    # mean by subtitles. It is a stream copy either way, and the words are not
+    # burned into the picture, so they stay switchable.
+    run(["ffmpeg", "-y", "-i", str(joined), "-i", str(subs),
+         "-map", "0", "-map", "1", "-c", "copy", "-c:s", "mov_text",
+         "-metadata:s:s:0", "language=eng",
+         "-movflags", "+faststart", str(final)])
+    joined.unlink(missing_ok=True)
+
+    return {"video": final, "srt": subs, "seconds": clock,
             "parts": len(made)}

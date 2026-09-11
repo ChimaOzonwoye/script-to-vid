@@ -97,3 +97,20 @@ def test_the_music_does_not_dip_at_a_join(tmp_path, monkeypatch):
     assert worst[0] < 0.35 * whole[worst[1]], (
         f"the mix drops at {worst[1] / 2:.1f}s: "
         f"whole {whole[worst[1]]:.0f}, split {split[worst[1]]:.0f}")
+
+
+@pytest.mark.skipif(not TRACK.exists(), reason="no bundled music")
+def test_the_video_carries_a_subtitle_track(tmp_path, monkeypatch):
+    """A sidecar .srt only helps somebody who knows to look for it. A track is
+    the switch every player already has, which is what people mean when they
+    say subtitles, and it stays switchable because the words are not burned
+    into the picture."""
+    r = render(tmp_path, "subs", 10_000.0, monkeypatch)
+    out = subprocess.run(
+        ["ffprobe", "-v", "error", "-show_entries",
+         "stream=index,codec_type,codec_name:stream_tags=language",
+         "-of", "csv=p=0", str(r["video"])],
+        capture_output=True, text=True).stdout
+    assert "subtitle" in out, out
+    assert "mov_text" in out, out
+    assert r["srt"].exists(), "the sidecar file should still be written too"

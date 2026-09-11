@@ -28,6 +28,8 @@ class Theme:
     light: str = "flat"     # the gradient laid over the ground
     lettering: str = "plain"   # how headline type is treated
     dressing: str = "none"     # one object standing beside the speaker
+    captions: str = "headline"  # where the words go, if anywhere
+    layout: str = "presenter"   # "presenter" has a cast, "story" has none
     blurb: str = ""         # one line describing the look, shown on the page
 
 
@@ -101,7 +103,8 @@ def mix(c1, c2, t):
 
 
 def _theme(name, label, bg, ink, a1, a2, ground="plain", light="flat",
-           lettering="plain", dressing="none", blurb="", **fixed):
+           lettering="plain", dressing="none", captions="headline",
+           layout="presenter", blurb="", **fixed):
     derived = dict(
         bg=bg, ink=ink, a1=a1, a2=a2,
         panel=mix(bg, ink, 0.04),
@@ -113,7 +116,8 @@ def _theme(name, label, bg, ink, a1, a2, ground="plain", light="flat",
     derived.update(fixed)
     derived["ui"] = _ui_accent(derived["a1"], derived["a2"], ink)
     return Theme(name=name, label=label, ground=ground, light=light,
-                 lettering=lettering, dressing=dressing, blurb=blurb,
+                 lettering=lettering, dressing=dressing,
+                 captions=captions, layout=layout, blurb=blurb,
                  **derived)
 
 
@@ -159,6 +163,12 @@ THEMES.update({
         "ledger", "Ledger", "#1d3a4d", "#f4f1e6", "#e0a33a", "#5aa9a0",
         ground="stage", light="glow", lettering="drop", dressing="growth",
         blurb="For money: a lit desk, a chart on the wall behind."),
+    "nightfall": _theme(
+        "nightfall", "Nightfall", "#171a2b", "#eeeaf2", "#c9a2e8", "#5fa8d3",
+        ground="plain", light="vignette", lettering="plain",
+        captions="bottom", layout="story",
+        blurb="Storytelling: no figure, the words at the bottom, the middle "
+              "left for the picture."),
     "studio": _theme(
         "studio", "Studio", "#f1e7d8", "#1a1712", "#c2603f", "#3f6f82",
         ground="arch", light="warm", lettering="plain", dressing="board",
@@ -184,8 +194,19 @@ DRESSING_LABELS = {"none": "Nothing", "board": "A board on the wall",
                    "growth": "A chart on the wall", "plant": "A plant",
                    "flowers": "Flowers", "cat": "An animal"}
 
+# Where the spoken words go on screen. The big centred headline was the only
+# option and it gets read as a subtitle, which it is not: it is a design
+# element competing with the thing the beat is about. "bottom" puts the words
+# where a subtitle belongs and leaves the middle of the frame for a picture.
+# "none" leaves the burned in words out entirely; final.srt still carries them
+# and any player can switch them on.
+CAPTION_LABELS = {"headline": "A headline beside the speaker",
+                  "bottom": "Small, at the bottom",
+                  "none": "None on screen, subtitle file only"}
 
-def resolve(name, light=None, lettering=None, dressing=None):
+
+def resolve(name, light=None, lettering=None, dressing=None,
+            captions=None):
     """The template to render with, after any choices made on top of it."""
     T = THEMES.get(name, THEMES[DEFAULT_THEME])
     changes = {}
@@ -195,4 +216,6 @@ def resolve(name, light=None, lettering=None, dressing=None):
         changes["lettering"] = lettering
     if dressing in DRESSING_LABELS:
         changes["dressing"] = dressing
+    if captions in CAPTION_LABELS:
+        changes["captions"] = captions
     return replace(T, **changes) if changes else T

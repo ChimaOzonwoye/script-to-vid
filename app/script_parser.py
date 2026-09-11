@@ -23,6 +23,7 @@ back in the review panel changes only its own beat.
 import re
 import textwrap
 
+from . import symbols
 from .backgrounds import BACKGROUNDS
 from .characters import EXPRESSIONS, HAIRS, HEADS, POSES
 
@@ -324,6 +325,10 @@ def _presenter_beat(say, cast_i, rot_i, side):
     return {
         "say": say,
         "visual": DEFAULT_VISUAL,
+        # the symbol rides on the beat rather than being looked up at draw
+        # time, so it is part of the segment cache key and a rebuild of an
+        # unchanged line comes out identical
+        "symbol": symbols.match(say),
         "caption": _auto_headline(say),
         "cast_i": cast_i,
         "side": side,

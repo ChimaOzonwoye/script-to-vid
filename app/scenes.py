@@ -23,6 +23,7 @@ import numpy as np
 from . import backgrounds as bg
 from . import characters as ch
 from . import stagecraft
+from . import symbols as sym
 from .themes import mix
 
 STAGE_W, STAGE_H = 32.0, 18.0
@@ -205,21 +206,84 @@ def presenter_x(side):
     return side * PRESENTER["x"] * (STAGE_W / 2)
 
 
-def _presenter_content(fig, T, b, side):
-    """Headline centred in the space the figure is not standing in."""
-    text = (b.get("caption") or b.get("headline") or "").strip()
-    if not text:
+# Where the words are put when the template does not want them across the
+# middle of the frame. A caption bar sits below the action, which is where a
+# viewer looks for a subtitle, and it is small enough to read as one.
+CAPTION_BAR_Y = 0.085
+
+
+def bottom_caption(fig, T, text):
+    """The spoken line, small, at the bottom, the way a subtitle is set."""
+    line = " ".join((text or "").split())
+    if not line:
         return
-    t = fig.text(0.5 - side * 0.17, 0.54,
-                 "\n".join(textwrap.wrap(text.upper(), 15)),
-                 ha="center", va="center", fontsize=56, color=T.ink,
-                 fontweight="bold", linespacing=1.16)
-    _fit(fig, t, 980)
-    stagecraft.letter(t, T)
+    t = fig.text(0.5, CAPTION_BAR_Y, "\n".join(textwrap.wrap(line, 62)),
+                 ha="center", va="center", fontsize=34, color=T.ink,
+                 linespacing=1.25)
+    # a plain shadow behind it whatever the template's lettering is, because
+    # small text over a busy ground is the one place this cannot be decorative
+    import matplotlib.patheffects as pe
+    t.set_path_effects([pe.withStroke(linewidth=7, foreground=T.bg)])
+    _fit(fig, t, 1680)
+
+
+def _presenter_content(fig, T, b, side):
+    """What fills the half of the frame the figure is not standing in.
+
+    With a headline it is the words. Without one it is the symbol the line
+    asked for, which is the point of moving the words out: the middle of the
+    frame goes back to being about the thing rather than about the sentence.
+    """
+    where = getattr(T, "captions", "headline")
+    if where == "headline":
+        text = (b.get("caption") or b.get("headline") or "").strip()
+        if not text:
+            return
+        t = fig.text(0.5 - side * 0.17, 0.54,
+                     "\n".join(textwrap.wrap(text.upper(), 15)),
+                     ha="center", va="center", fontsize=56, color=T.ink,
+                     fontweight="bold", linespacing=1.16)
+        _fit(fig, t, 980)
+        stagecraft.letter(t, T)
+        return
+
+    name = b.get("symbol")
+    if name:
+        ax = fig.axes[0]
+        sym.draw(ax, name, T, -side * 5.4, GROUND_Y + 6.0, 3.2)
+    if where == "bottom":
+        bottom_caption(fig, T, b.get("say"))
+
+
+def scene_story(fig, b, T):
+    """No figure at all: a lit ground, the symbol the line named, and the
+    words at the bottom.
+
+    The drawn cast is what makes this look like an explainer. Plenty of what
+    people watch has nobody in it: a background, something moving on it, and
+    the narration carried by the voice and a caption. This is that shape, and
+    it is the one layout where the middle of the frame is never text.
+    """
+    ax = _stage(fig, b, T, GROUND_Y, 0.5)
+    name = b.get("symbol")
+    if name:
+        sym.draw(ax, name, T, 0.0, GROUND_Y + 5.6, 4.8)
+    # this layout has no headline slot to put words in, so "headline" and
+    # "bottom" both mean the bar. Only "none" leaves the frame silent.
+    if getattr(T, "captions", "headline") != "none":
+        bottom_caption(fig, T, b.get("say"))
 
 
 def scene_presenter(fig, b, T):
-    """One figure held in place, the content beside them changing."""
+    """One figure held in place, the content beside them changing.
+
+    A template can say it has no cast, in which case an undirected beat is
+    drawn as a story frame instead. Doing the swap here rather than in the
+    parser keeps the choice with the look, where it belongs: the same script
+    renders with a presenter or without one depending only on the template.
+    """
+    if getattr(T, "layout", "presenter") == "story":
+        return scene_story(fig, b, T)
     side = -1 if b.get("side", "left") == "left" else 1
     head, _ = _shape(b)
     s = ch.scale_for_height(PRESENTER["height"] * STAGE_H, head, ch.HEAD_RATIO)
@@ -362,6 +426,7 @@ def scene_chart(fig, b, T):
 
 VISUALS = {
     "scene_presenter": scene_presenter,
+    "scene_story": scene_story,
     "scene_character": scene_character,
     "scene_caption": scene_caption,
     "scene_duo": scene_duo,

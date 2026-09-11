@@ -128,3 +128,30 @@ def test_a_template_can_stand_something_beside_the_speaker():
 def test_nothing_stands_beside_the_speaker_in_the_quiet_family():
     for name in ("cream", "paper", "sky", "mint"):
         assert THEMES[name].dressing == "none"
+
+
+def test_the_words_can_be_moved_off_the_middle_of_the_frame():
+    """The big centred headline reads as a subtitle and is not one: it is a
+    design element sitting where the picture should be."""
+    from app.themes import CAPTION_LABELS, resolve
+    assert set(CAPTION_LABELS) == {"headline", "bottom", "none"}
+    for T in THEMES.values():
+        assert T.captions in CAPTION_LABELS, (T.name, T.captions)
+    assert resolve("cream", captions="bottom").captions == "bottom"
+    assert resolve("cream", captions="middle").captions == "headline"
+
+
+def test_a_template_can_have_no_cast():
+    """Plenty of narrated video has nobody in it. The swap is a property of
+    the look, so the same script renders both ways."""
+    assert THEMES["nightfall"].layout == "story"
+    for name in ("cream", "paper", "sky", "mint"):
+        assert THEMES[name].layout == "presenter"
+        assert THEMES[name].captions == "headline"
+
+
+def test_a_story_template_never_leaves_the_line_unreadable():
+    """That layout has no headline slot, so "headline" there has to mean the
+    caption bar rather than nothing at all."""
+    from app import scenes
+    assert scenes.VISUALS["scene_story"] is scenes.scene_story
