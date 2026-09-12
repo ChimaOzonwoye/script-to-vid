@@ -32,7 +32,7 @@ class Theme:
     layout: str = "presenter"   # "presenter", "story" (no cast) or
                                 # "photo" (pictures you brought)
     effect: str = "none"        # particles moving over the whole frame
-    composition: str = "icon"   # the shape of a frame with no cast in it
+    composition: str = "accent" # the shape of a frame with no cast in it
     family: str = "quiet"       # how the picker groups it
     blurb: str = ""         # one line describing the look, shown on the page
 
@@ -108,7 +108,7 @@ def mix(c1, c2, t):
 
 def _theme(name, label, bg, ink, a1, a2, ground="plain", light="flat",
            lettering="plain", dressing="none", captions="headline",
-           layout="presenter", effect="none", composition="icon",
+           layout="presenter", effect="none", composition="accent",
            family="quiet", blurb="", **fixed):
     derived = dict(
         bg=bg, ink=ink, a1=a1, a2=a2,
@@ -193,9 +193,9 @@ THEMES.update({
         "snowfall", "Snowfall", "#243044", "#eef2f7", "#9fc4e8", "#6f86a8",
         ground="arch", light="glow", captions="bottom", layout="story",
         effect="snow",
-        composition="watermark",
+        composition="card",
         family="story",
-        blurb="Snow, and the picture faded back behind the words."),
+        blurb="Snow falling, the line mounted on a card in the middle."),
     "hearth": _theme(
         "hearth", "Hearth", "#2a1a16", "#f5e9de", "#e0743a", "#b3924f",
         ground="arch", light="glow", captions="bottom", layout="story",
@@ -213,7 +213,7 @@ THEMES.update({
     "album": _theme(
         "album", "Your pictures", "#101218", "#f2f0ec", "#d8b06a", "#6f8fb0",
         ground="plain", light="vignette", captions="bottom", layout="photo",
-        composition="icon",
+        composition="accent",
         family="story",
         blurb="Your own images, one per beat, fitted to the frame."),
     "studio": _theme(
@@ -256,10 +256,8 @@ DRESSING_LABELS = {"none": "Nothing", "board": "A board on the wall",
 # was asked for, so most of these are frames for one; the type led shapes are
 # there for a template that is about what is said rather than what it is
 # about, and for a line that named nothing the vocabulary knows.
-COMPOSITION_LABELS = {"accent": "The words, with a small mark above",
-                      "icon": "The picture, centred",
-                      "card": "The picture, mounted on a card",
-                      "watermark": "The picture faded behind the words",
+COMPOSITION_LABELS = {"accent": "The words, with a small mark beside",
+                      "card": "The words, mounted on a card",
                       "band": "The words across a solid bar",
                       "split": "A colour block down one side",
                       "type": "The words at the size of the frame"}

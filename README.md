@@ -1,8 +1,9 @@
 # script to vid
 
 Write a script. Get back a finished narrated video: voiceover, drawn visuals,
-subtitles, your logo and music. Eleven templates decide how it looks, from a
-plain page to a dark room with a spotlight.
+subtitles, your logo and music. Seventeen templates decide how it looks, from
+a plain page to a dark room with a spotlight to rain falling over your own
+photographs.
 
 Runs on your own computer. Free, no account, no editing software, no limit on
 how much you make.
@@ -141,11 +142,31 @@ Rooms are a separate thing and still exist: a room is furniture across the
 whole frame that you pick per beat with `> scene:`, this is one object a
 template carries everywhere.
 
-Eleven ship. Cream, Paper white, Sky and Mint are the quiet family: pale
-ground, even light, nothing beside the speaker. Mustard, Riso print, Coral,
-Slate, Deep forest, Ledger and Studio each commit to a ground and a light too,
-and three of them are dark. Ledger is built for money: a lit desk and a chart
-on the wall behind. Studio has a board on the wall, for teaching something.
+Seventeen ship, in three families.
+
+**Quiet**, four of them: Cream, Paper white, Sky and Mint. Pale ground, even
+light, nothing beside the speaker.
+
+**Bold**, seven: Mustard, Riso print, Coral, Slate, Deep forest, Ledger and
+Studio. Each commits to a ground and a light of its own and three are dark.
+Ledger is built for money, with a lit desk and a chart on the wall behind.
+Studio has a board on the wall, for teaching something.
+
+**Storytelling**, six: Nightfall, Downpour, Snowfall, Hearth, Attic and Your
+pictures. No drawn figure at all. Plenty of what people watch has nobody in
+it, and a script does not stop being a script because there is no presenter in
+front of it. Four of them run weather over the frame, which is a short loop of
+transparent frames laid on repeat, so a ten minute video costs one loop to
+render. Rain, snow, dust, embers, bokeh and stars, and every one is built so
+the particles travel a whole number of wraps across its length. Get that wrong
+and the loop jumps once a second, which is what five of the six did before the
+loop closure was measured rather than eyeballed.
+
+Your pictures is the one that takes images you supply. Drop them into the
+Pictures step and they are handed out to the beats in order, fitted to the
+frame: anything near 16:9 is cropped to fill, and anything far off it sits
+whole over a blurred copy of itself rather than being squashed or bordered in
+black.
 
 The picker shows a real still of each one. A name and three colour dots cannot
 tell anyone that Coral has a sunburst behind the speaker, and a template is the
@@ -273,6 +294,26 @@ fix it, because the problem was never the edges.
 material for this kind of video is full of them. Copying one would hand a
 claim over somebody's video to a company that had nothing to do with it.
 
+**Subtitles go at the bottom and the middle is left alone.** A caption set
+large in the centre of the frame is the thing the viewer is looking at, and
+what they should be looking at is the picture. The words run small along the
+bottom the way a subtitle does, and they are muxed into the file as a real
+subtitle track as well, so a player can turn them off.
+
+**A matched shape is a mark in the corner, never the picture.** A storytelling
+frame can draw a small shape for something the line named: money, a letter, a
+clock, twenty-five of them. The match reads keywords, which means it is a
+guess. "Future growth that money could have earned" matches on the word money
+and draws a banknote, in a sentence about the growth that never happened. At
+the size of a stamp in the corner that is a decoration and nobody argues with
+it. In the middle of the frame it is the video being about the wrong thing,
+and the first three attempts at this all made it the biggest thing on screen.
+The middle is given to the words the script actually wrote, or to a picture
+you chose yourself. Nothing guessed goes there. A test renders every
+storytelling template twice, with the shape and without, and fails if the
+difference lands anywhere near the centre or covers more than a twentieth of
+the frame.
+
 **No YouTube downloader.** It would breach the terms of service and put
 Content ID claims on videos people are trying to monetise, which is the
 opposite of the point.
@@ -280,10 +321,12 @@ opposite of the point.
 ## Where this is
 
 Working and tested: the parser, the voiceover and its cache, all the scene
-layouts, the eleven templates with their grounds, lights, lettering and side
-objects, the logo and music, subtitles, the part renderer and its resume, the
-joiner, the installers for Windows and Mac, and the web app. 476 tests across
-unit, integration and end to end, with a real render in the integration ones.
+layouts, the seventeen templates with their grounds, lights, lettering, side
+objects and weather, your own pictures, the logo and music, subtitles both
+burned small at the bottom and muxed as a track, the part renderer and its
+resume, the joiner, the installers for Windows and Mac, and the web app. 558
+tests across unit, integration and end to end, with a real render in the
+integration ones.
 
 Known gaps:
 

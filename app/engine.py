@@ -627,7 +627,7 @@ def _prepared(beats, project, theme=None):
         # because scenes reaches back into this module
         from .scenes import TYPE_LED
         type_led = (getattr(theme, "layout", "") == "story"
-                    and getattr(theme, "composition", "icon") in TYPE_LED)
+                    and getattr(theme, "composition", "accent") in TYPE_LED)
         if (theme is not None and not type_led
                 and getattr(theme, "captions", "headline") == "bottom"):
             pieces = captions.split(b.get("say"))
@@ -827,6 +827,7 @@ def render_video(project, beats, theme, voice=VOICE, rate=RATE, progress=None):
     `progress(stage, done, total)` is called as work happens; stage is one of
     "voice", "slides", "segments", "final".
     """
+    from . import scenes
     if not shutil.which("ffmpeg"):
         raise RenderError("ffmpeg was not found. Run the installer again, or "
                           "install ffmpeg and restart the app.")
@@ -949,15 +950,17 @@ def render_video(project, beats, theme, voice=VOICE, rate=RATE, progress=None):
             # what keeps a speaking beat at six slides instead of six times
             # however many pieces the paragraph came to.
             spans = captions.timings(pieces, LEAD_SILENCE, spoken)
-            # only the composition that is about the subject lets the
-            # picture change with the words; a watermark or a colour
-            # block is set dressing and must not flicker per piece
+            # the mark can follow the words, but only where the slide has a
+            # corner free for one. The rest fill the frame with the words
+            # themselves, and a photo template already has your picture in it.
             story = (getattr(theme, "layout", "presenter") == "story"
-                     and getattr(theme, "composition", "icon") == "icon")
+                     and getattr(theme, "composition", "accent")
+                     in scenes.MARKED)
             for k, (piece, (a, bb)) in enumerate(zip(pieces, spans)):
                 cf = work / f"cap_{i:02d}_{k:02d}.png"
-                # each piece gets the symbol its own words asked for, falling
-                # back to the beat's so the middle never goes empty mid line
+                # each piece gets the mark its own words asked for, falling
+                # back to the beat's so the corner does not blink empty
+                # halfway through a line
                 mark = (symbols.match(piece, confident=True)
                         or beats[i].get("symbol")) \
                     if story else None

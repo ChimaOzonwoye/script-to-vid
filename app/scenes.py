@@ -286,17 +286,18 @@ def bare_stage(fig):
     return ax
 
 
-# Two sizes, because a match that is only roughly right survives being a
-# small mark and does not survive being the largest thing on screen. The big
-# one is reserved for the composition that exists to show it, and even that
-# is smaller than it was.
-STORY_SYMBOL = (0.0, GROUND_Y + 6.2, 3.4)
-ACCENT_SYMBOL = (-9.6, GROUND_Y + 9.4, 1.5)
+# One size, and it is small, because the symbol is a keyword match and a
+# keyword match is a guess. "future growth that money could have earned"
+# finds money, so a line about the money you did not spend draws a banknote.
+# At the size of a stamp in the corner that is a decoration and nobody
+# argues with it. In the middle of the frame it is the video being about the
+# wrong thing. The middle is only ever given to a picture you chose.
+STORY_MARK = (-11.6, GROUND_Y + 10.2, 1.3)
 
 
-def story_symbol(ax, name, T, accent=False):
-    """The symbol a story frame draws, wherever it is being drawn."""
-    sym.draw(ax, name, T, *(ACCENT_SYMBOL if accent else STORY_SYMBOL))
+def story_symbol(ax, name, T):
+    """The mark a story frame draws, wherever it is being drawn."""
+    sym.draw(ax, name, T, *STORY_MARK)
 
 
 # ----------------------------------------------------------------------
@@ -317,17 +318,6 @@ def _story_head(b, width=16, lines=4):
     return "\n".join(textwrap.wrap(text, width)[:lines]) if text else ""
 
 
-def comp_icon(fig, ax, b, T):
-    """The symbol the line named, in the middle. The one composition that is
-    about the subject rather than about the words, so it is the only one that
-    draws the symbol at any size worth calling a picture."""
-    name = b.get("symbol")
-    if name and not b.get("rolling"):
-        story_symbol(ax, name, T)
-    elif not name:
-        comp_type(fig, ax, b, T)
-
-
 def comp_accent(fig, ax, b, T):
     """The words, with a small mark above them if the line named something.
 
@@ -339,7 +329,7 @@ def comp_accent(fig, ax, b, T):
     """
     name = b.get("symbol")
     if name and not b.get("rolling"):
-        story_symbol(ax, name, T, accent=True)
+        story_symbol(ax, name, T)
     head = _story_head(b, 16, 3)
     if head:
         t = fig.text(0.5, 0.50, head, ha="center", va="center", fontsize=76,
@@ -361,11 +351,11 @@ def comp_type(fig, ax, b, T):
 
 
 def comp_card(fig, ax, b, T):
-    """A panel with the picture mounted in it, the way a print is framed.
+    """A panel with the words mounted in it, the way a print is framed.
 
     The panel is what makes the middle of the frame feel composed rather than
-    empty. What sits in it is the symbol when the line named one, and the
-    words only when it did not.
+    empty. What sits in it is the line the script wrote, which is always
+    right, and not the symbol a keyword matched, which is often not.
     """
     step = 0.16 if _pale(T) else 0.13
     ax.add_patch(FancyBboxPatch(
@@ -375,14 +365,13 @@ def comp_card(fig, ax, b, T):
         edgecolor=mix(T.ink, T.bg, 0.45), linewidth=3.6))
     name = b.get("symbol")
     if name and not b.get("rolling"):
-        sym.draw(ax, name, T, 0.0, GROUND_Y + 6.2, 2.8)
-    elif not name:
-        head = _story_head(b, 17, 4)
-        if head:
-            t = fig.text(0.5, 0.545, head, ha="center", va="center",
-                         fontsize=70, color=T.ink, fontweight="bold",
-                         linespacing=1.12)
-            _fit(fig, t, 1180)
+        story_symbol(ax, name, T)
+    head = _story_head(b, 17, 4)
+    if head:
+        t = fig.text(0.5, 0.545, head, ha="center", va="center",
+                     fontsize=70, color=T.ink, fontweight="bold",
+                     linespacing=1.12)
+        _fit(fig, t, 1020)
 
 
 def comp_band(fig, ax, b, T):
@@ -409,30 +398,12 @@ def comp_split(fig, ax, b, T):
         _fit(fig, t, 1000)
 
 
-def comp_watermark(fig, ax, b, T):
-    """The symbol blown up and faded back behind the words, so the picture is
-    a texture rather than the subject of the shot."""
-    name = b.get("symbol")
-    if name:
-        mark = fig.add_axes([0, 0, 1, 1], zorder=0)
-        mark.axis("off")
-        mark.set_xlim(X_MIN, X_MIN + STAGE_W)
-        mark.set_ylim(Y_MIN, Y_MIN + STAGE_H)
-        mark.patch.set_alpha(0)
-        sym.draw(mark, name, T, 0.0, GROUND_Y + 5.4, 8.2)
-        for art in list(mark.patches) + list(mark.lines) + list(mark.collections):
-            art.set_alpha(0.16)
-    head = _story_head(b, 16, 4)
-    if head:
-        t = fig.text(0.5, 0.54, head, ha="center", va="center", fontsize=86,
-                     color=T.ink, fontweight="bold", linespacing=1.08)
-        _fit(fig, t, 1520)
-        stagecraft.letter(t, T)
+COMPOSITIONS = {"accent": comp_accent, "type": comp_type, "card": comp_card,
+                "band": comp_band, "split": comp_split}
 
-
-COMPOSITIONS = {"accent": comp_accent, "icon": comp_icon, "type": comp_type,
-                "card": comp_card, "band": comp_band, "split": comp_split,
-                "watermark": comp_watermark}
+# The compositions with a corner slot for the matched mark. The others fill
+# the frame with the words themselves and a mark would land on top of them.
+MARKED = ("accent", "card")
 
 # A composition built out of the headline already has the words in it, large.
 # Running the caption underneath as well prints the opening of the beat twice
@@ -460,7 +431,7 @@ def scene_story(fig, b, T):
     """
     ax = _stage(fig, b, T, GROUND_Y, 0.5)
     shape = getattr(T, "composition", "icon")
-    COMPOSITIONS.get(shape, comp_icon)(fig, ax, b, T)
+    COMPOSITIONS.get(shape, comp_accent)(fig, ax, b, T)
     # this layout has no headline slot beside a figure, so "headline" and
     # "bottom" both mean the bar. Only "none" leaves the frame silent.
     if (getattr(T, "captions", "headline") != "none"
