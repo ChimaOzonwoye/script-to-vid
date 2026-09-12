@@ -25,7 +25,6 @@ from . import backgrounds as bg
 from . import characters as ch
 from . import stagecraft
 from . import captions
-from . import symbols as sym
 from .themes import mix
 
 STAGE_W, STAGE_H = 32.0, 18.0
@@ -251,9 +250,10 @@ def bottom_caption(fig, T, text):
 def _presenter_content(fig, T, b, side):
     """What fills the half of the frame the figure is not standing in.
 
-    With a headline it is the words. Without one it is the symbol the line
-    asked for, which is the point of moving the words out: the middle of the
-    frame goes back to being about the thing rather than about the sentence.
+    The words, or nothing. Subtitles at the bottom free the middle, and what
+    went in it was a shape matched from the line by keyword. That was never
+    accurate enough to be worth looking at, so the half is left to the room
+    and the light instead of being filled for the sake of filling it.
     """
     where = getattr(T, "captions", "headline")
     if where == "headline":
@@ -268,36 +268,8 @@ def _presenter_content(fig, T, b, side):
         stagecraft.letter(t, T)
         return
 
-    name = b.get("symbol")
-    if name:
-        ax = fig.axes[0]
-        sym.draw(ax, name, T, -side * 5.4, GROUND_Y + 6.0, 3.2)
     if where == "bottom" and not b.get("rolling"):
         bottom_caption(fig, T, caption_piece(b))
-
-
-def bare_stage(fig):
-    """Stage axes with nothing on them, for drawing a layer to overlay."""
-    ax = fig.add_axes([0, 0, 1, 1])
-    ax.axis("off")
-    ax.set_xlim(X_MIN, X_MIN + STAGE_W)
-    ax.set_ylim(Y_MIN, Y_MIN + STAGE_H)
-    ax.patch.set_alpha(0)
-    return ax
-
-
-# One size, and it is small, because the symbol is a keyword match and a
-# keyword match is a guess. "future growth that money could have earned"
-# finds money, so a line about the money you did not spend draws a banknote.
-# At the size of a stamp in the corner that is a decoration and nobody
-# argues with it. In the middle of the frame it is the video being about the
-# wrong thing. The middle is only ever given to a picture you chose.
-STORY_MARK = (-11.6, GROUND_Y + 10.2, 1.3)
-
-
-def story_symbol(ax, name, T):
-    """The mark a story frame draws, wherever it is being drawn."""
-    sym.draw(ax, name, T, *STORY_MARK)
 
 
 # ----------------------------------------------------------------------
@@ -316,26 +288,6 @@ def story_symbol(ax, name, T):
 def _story_head(b, width=16, lines=4):
     text = (b.get("caption") or "").strip().upper()
     return "\n".join(textwrap.wrap(text, width)[:lines]) if text else ""
-
-
-def comp_accent(fig, ax, b, T):
-    """The words, with a small mark above them if the line named something.
-
-    This is the one to reach for when the match cannot be trusted to be
-    exactly right, which is most of the time: a briefcase the size of a
-    postage stamp beside a headline about a job is fine even when the line
-    was really about something else, and the same briefcase filling the frame
-    is not.
-    """
-    name = b.get("symbol")
-    if name and not b.get("rolling"):
-        story_symbol(ax, name, T)
-    head = _story_head(b, 16, 3)
-    if head:
-        t = fig.text(0.5, 0.50, head, ha="center", va="center", fontsize=76,
-                     color=T.ink, fontweight="bold", linespacing=1.10)
-        _fit(fig, t, 1480)
-        stagecraft.letter(t, T)
 
 
 def comp_type(fig, ax, b, T):
@@ -363,9 +315,6 @@ def comp_card(fig, ax, b, T):
         boxstyle="round,pad=0,rounding_size=0.9",
         facecolor=mix(T.bg, "#000000" if _pale(T) else "#ffffff", step),
         edgecolor=mix(T.ink, T.bg, 0.45), linewidth=3.6))
-    name = b.get("symbol")
-    if name and not b.get("rolling"):
-        story_symbol(ax, name, T)
     head = _story_head(b, 17, 4)
     if head:
         t = fig.text(0.5, 0.545, head, ha="center", va="center",
@@ -398,18 +347,14 @@ def comp_split(fig, ax, b, T):
         _fit(fig, t, 1000)
 
 
-COMPOSITIONS = {"accent": comp_accent, "type": comp_type, "card": comp_card,
+COMPOSITIONS = {"type": comp_type, "card": comp_card,
                 "band": comp_band, "split": comp_split}
-
-# The compositions with a corner slot for the matched mark. The others fill
-# the frame with the words themselves and a mark would land on top of them.
-MARKED = ("accent", "card")
 
 # A composition built out of the headline already has the words in it, large.
 # Running the caption underneath as well prints the opening of the beat twice
 # in two sizes, which reads as a bug rather than as a subtitle. The words are
 # still in the subtitle track either way.
-TYPE_LED = ("type", "band", "split", "accent")
+TYPE_LED = ("type", "band", "split")
 
 
 def _pale(T):
@@ -431,7 +376,7 @@ def scene_story(fig, b, T):
     """
     ax = _stage(fig, b, T, GROUND_Y, 0.5)
     shape = getattr(T, "composition", "icon")
-    COMPOSITIONS.get(shape, comp_accent)(fig, ax, b, T)
+    COMPOSITIONS.get(shape, comp_type)(fig, ax, b, T)
     # this layout has no headline slot beside a figure, so "headline" and
     # "bottom" both mean the bar. Only "none" leaves the frame silent.
     if (getattr(T, "captions", "headline") != "none"

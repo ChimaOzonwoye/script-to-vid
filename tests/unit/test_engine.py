@@ -127,7 +127,6 @@ def test_a_storytelling_template_draws_no_figure(tmp_path):
 
     beat = parse("Five years later it was a twelve thousand dollar difference."
                  )["beats"][0]
-    assert beat["symbol"] == "money"
     skin = np.array([int(ch.SKIN[i:i + 2], 16) for i in (1, 3, 5)])
 
     def skin_pixels(T):

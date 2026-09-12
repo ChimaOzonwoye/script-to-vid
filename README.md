@@ -324,19 +324,32 @@ what they should be looking at is the picture. The words run small along the
 bottom the way a subtitle does, and they are muxed into the file as a real
 subtitle track as well, so a player can turn them off.
 
-**A matched shape is a mark in the corner, never the picture.** A storytelling
-frame can draw a small shape for something the line named: money, a letter, a
-clock, twenty-five of them. The match reads keywords, which means it is a
-guess. "Future growth that money could have earned" matches on the word money
-and draws a banknote, in a sentence about the growth that never happened. At
-the size of a stamp in the corner that is a decoration and nobody argues with
-it. In the middle of the frame it is the video being about the wrong thing,
-and the first three attempts at this all made it the biggest thing on screen.
-The middle is given to the words the script actually wrote, or to a picture
-you chose yourself. Nothing guessed goes there. A test renders every
-storytelling template twice, with the shape and without, and fails if the
-difference lands anywhere near the centre or covers more than a twentieth of
-the frame.
+**The pictures are yours or there are none.** There used to be a vocabulary of
+twenty-five drawn shapes, matched to the narration by keyword: money, a
+letter, a clock. It was removed. Keyword matching is a guess, and a guess is
+wrong often enough to be distracting. "Future growth that money could have
+earned" matches on the word money and draws a banknote, in a sentence about
+the growth that never happened. Shrinking it to a corner mark did not fix
+that, it only made the wrong picture smaller. Nothing here runs a model that
+could do it properly, so it does not pretend to: the frame shows the words
+the script wrote, or the images you uploaded, both of which are exactly
+right by construction.
+
+**One encode does not fill a machine, so several run at once.** The slow zoom
+works on a frame four times the size of the output, and that filter is single
+threaded, so the encoder spends much of its time waiting on it. One ten
+second segment measured 12.0s alone and 3.2s with four in flight. Segments
+are keyed on their own beat and share nothing, so they run on a small pool,
+and so do the parts. The output is byte for byte what the serial render
+produced, which is a test rather than a claim. `STV_JOBS` sets the pool size
+if you want your cores back for something else.
+
+**The final pass uses a fast preset.** It shipped on x264 preset medium at
+crf 20. Measured against veryfast at crf 22 on a hundred second render: 48%
+slower for a file 7% larger and an SSIM difference of 0.0003. On flat colour
+and large type, where a fast preset would band if it were going to, 0.99935
+against 0.99871. It was spending half the render refining bits the
+intermediate encode had already thrown away.
 
 **No YouTube downloader.** It would breach the terms of service and put
 Content ID claims on videos people are trying to monetise, which is the
@@ -348,9 +361,14 @@ Working and tested: the parser, the voiceover and its cache, all the scene
 layouts, the seventeen templates with their grounds, lights, lettering, side
 objects and weather, your own pictures, the logo and music, subtitles both
 burned small at the bottom and muxed as a track, the part renderer and its
-resume, the joiner, the installers for Windows and Mac, and the web app. 558
+resume, the joiner, the installers for Windows and Mac, and the web app. 605
 tests across unit, integration and end to end, with a real render in the
 integration ones.
+
+On four cores a hundred second video takes about two and a half minutes to
+render, most of it in ffmpeg. It was four and a half before the encodes were
+made to run alongside each other and the final pass stopped using a preset
+it was not getting anything for.
 
 Known gaps:
 

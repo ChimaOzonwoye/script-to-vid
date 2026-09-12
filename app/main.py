@@ -18,7 +18,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from PIL import Image
 
-from . import (effects, engine, images, joiner, projects, symbols,
+from . import (effects, engine, images, joiner, projects,
                voices)
 from .script_parser import parse
 from .themes import (THEMES, DEFAULT_THEME, page_palette, resolve,
@@ -259,17 +259,12 @@ PREVIEW_DIR = projects.ROOT / "cache" / "previews"
 PREVIEW_LOCK = threading.Lock()
 # The line has to be a real one, not an empty string: a story template draws
 # a composition built from the words and the caption underneath, so a beat
-# with nothing in it previews as an empty rectangle. It also has to name
-# nothing in the symbol vocabulary. The first version of this line contained
-# the word "money", so every storytelling template previewed with a banknote
-# in the middle of it and the whole family read as six ways to make a video
-# about cash.
+# with nothing in it previews as an empty rectangle.
 PREVIEW_LINE = "The part nobody tells you about."
 PREVIEW_BEAT = {"say": PREVIEW_LINE,
                 "visual": "scene_presenter", "side": "left",
                 "caption": "The part nobody tells you", "cast_i": 0,
-                "expr": "happy", "pose": "offer",
-                "symbol": symbols.match(PREVIEW_LINE)}
+                "expr": "happy", "pose": "offer"}
 
 
 def preview_png(T):
