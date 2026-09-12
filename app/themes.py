@@ -179,7 +179,7 @@ THEMES.update({
         "nightfall", "Nightfall", "#171a2b", "#eeeaf2", "#c9a2e8", "#5fa8d3",
         ground="bars", light="vignette", lettering="plain",
         captions="bottom", layout="story",
-        composition="icon",
+        composition="accent",
         family="story",
         blurb="Storytelling: the line at the size of the frame, nothing else."),
     "downpour": _theme(
@@ -256,7 +256,8 @@ DRESSING_LABELS = {"none": "Nothing", "board": "A board on the wall",
 # was asked for, so most of these are frames for one; the type led shapes are
 # there for a template that is about what is said rather than what it is
 # about, and for a line that named nothing the vocabulary knows.
-COMPOSITION_LABELS = {"icon": "The picture, centred",
+COMPOSITION_LABELS = {"accent": "The words, with a small mark above",
+                      "icon": "The picture, centred",
                       "card": "The picture, mounted on a card",
                       "watermark": "The picture faded behind the words",
                       "band": "The words across a solid bar",

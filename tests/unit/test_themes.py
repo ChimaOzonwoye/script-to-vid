@@ -195,7 +195,10 @@ def test_the_frame_shape_is_a_choice_and_every_template_names_a_real_one():
     for T in THEMES.values():
         assert T.composition in COMPOSITIONS, (T.name, T.composition)
     assert resolve("nightfall", composition="band").composition == "band"
-    assert resolve("nightfall", composition="spiral").composition == "icon"
+    # an unknown value leaves the template's own shape alone rather than
+    # snapping it to some default
+    assert resolve("nightfall", composition="spiral").composition == \
+        THEMES["nightfall"].composition
 
     # the storytelling family has to actually differ, or grouping them is a lie
     story = by_family()["story"]
@@ -209,5 +212,7 @@ def test_a_type_led_frame_does_not_print_the_words_twice():
     beat twice in two sizes."""
     from app import scenes
     assert set(scenes.TYPE_LED) <= set(scenes.COMPOSITIONS)
-    for shape in scenes.TYPE_LED:
-        assert shape in ("type", "band", "split")
+    # every shape that builds itself out of the headline has to be listed, or
+    # it prints the opening of the beat twice
+    assert "icon" not in scenes.TYPE_LED
+    assert {"type", "band", "split"} <= set(scenes.TYPE_LED)

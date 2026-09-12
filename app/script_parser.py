@@ -328,7 +328,10 @@ def _presenter_beat(say, cast_i, rot_i, side):
         # the symbol rides on the beat rather than being looked up at draw
         # time, so it is part of the segment cache key and a rebuild of an
         # unchanged line comes out identical
-        "symbol": symbols.match(say),
+        # only a confident match rides on the beat: a loose one is fine as
+        # a small mark and wrong as the subject of the shot, and the beat
+        # does not know how big whatever draws it is going to be
+        "symbol": symbols.match(say, confident=True),
         "caption": _auto_headline(say),
         "cast_i": cast_i,
         "side": side,

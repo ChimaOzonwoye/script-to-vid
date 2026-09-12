@@ -958,7 +958,8 @@ def render_video(project, beats, theme, voice=VOICE, rate=RATE, progress=None):
                 cf = work / f"cap_{i:02d}_{k:02d}.png"
                 # each piece gets the symbol its own words asked for, falling
                 # back to the beat's so the middle never goes empty mid line
-                mark = (symbols.match(piece) or beats[i].get("symbol")) \
+                mark = (symbols.match(piece, confident=True)
+                        or beats[i].get("symbol")) \
                     if story else None
                 caption_frame(piece, theme, cf, symbol=mark)
                 extra += ["-i", str(cf)]

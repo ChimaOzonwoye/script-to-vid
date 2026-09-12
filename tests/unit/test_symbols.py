@@ -100,3 +100,27 @@ def test_every_symbol_draws_something_distinguishable(tmp_path):
         assert edges >= 4, f"{name} reads as one plain blob ({edges} edges)"
         seen[name] = edges
     assert len(seen) == len(symbols.SYMBOLS)
+
+
+def test_a_loose_match_is_kept_out_of_anything_drawn_large():
+    """A match that is only roughly right survives being a small mark in a
+    corner and does not survive being the largest thing on screen. "Waiting a
+    month is a month of growth you never get back" matched on "month" and drew
+    a clock, which is defensible in passing and wrong as the subject."""
+    weak = "After three months you stop noticing it is gone"
+    assert symbols.match(weak) == "time"
+    assert symbols.match(weak, confident=True) is None
+
+
+def test_a_confident_match_is_still_found():
+    line = "Starting a new job, planning to deal with it later."
+    assert symbols.match(line, confident=True) == "work"
+
+
+def test_the_beat_only_carries_a_confident_match():
+    """The beat does not know how big whatever draws it is going to be, so it
+    only carries one that would survive being drawn big."""
+    beats = parse("After three months you stop noticing it is gone.")["beats"]
+    assert beats[0]["symbol"] is None
+    beats = parse("She started a new job that autumn.")["beats"]
+    assert beats[0]["symbol"] == "work"

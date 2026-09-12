@@ -57,8 +57,8 @@ VOCABULARY = [
       "earning", "earned")),
     ("growth",
      ("compound", "compounding", "interest", "profit", "portfolio",
-      "invest", "investing", "invested", "investment", "returns"),
-     ("growth", "grow", "grows", "growing", "grew", "increase", "increases",
+      "invest", "investing", "invested", "investment", "returns", "growth"),
+     ("grow", "grows", "growing", "grew", "increase", "increases",
       "increased", "rise", "rises", "rising", "rose", "gain", "gains",
       "doubled", "doubling")),
     ("loss",
@@ -170,12 +170,18 @@ for _name, _strong, _weak in VOCABULARY:
 _WORDS = re.compile(r"[a-z']+")
 
 
-def match(say):
+def match(say, confident=False):
     """The symbol this line asks for, or None.
 
     A strong word anywhere in the line beats a weak word earlier in it. Within
     a tier the earliest wins, because what a line is about is usually named
     before the thing being said about it.
+
+    `confident` drops the weak tier entirely. A loose match survives being a
+    small mark in a corner and does not survive being the largest thing on
+    screen: "waiting a month is a month of growth you never get back" matches
+    on "month" and draws a clock, which is defensible in passing and wrong as
+    the subject of the shot. Anything drawn big asks for confident=True.
     """
     first_weak = None
     for word in _WORDS.findall((say or "").lower()):
@@ -187,7 +193,7 @@ def match(say):
             return name
         if first_weak is None:
             first_weak = name
-    return first_weak
+    return None if confident else first_weak
 
 
 # ----------------------------------------------------------------------

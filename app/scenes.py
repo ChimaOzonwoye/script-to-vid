@@ -286,12 +286,17 @@ def bare_stage(fig):
     return ax
 
 
-STORY_SYMBOL = (0.0, GROUND_Y + 6.0, 4.4)
+# Two sizes, because a match that is only roughly right survives being a
+# small mark and does not survive being the largest thing on screen. The big
+# one is reserved for the composition that exists to show it, and even that
+# is smaller than it was.
+STORY_SYMBOL = (0.0, GROUND_Y + 6.2, 3.4)
+ACCENT_SYMBOL = (-9.6, GROUND_Y + 9.4, 1.5)
 
 
-def story_symbol(ax, name, T):
-    """The symbol a story frame puts in the middle, wherever it is drawn."""
-    sym.draw(ax, name, T, *STORY_SYMBOL)
+def story_symbol(ax, name, T, accent=False):
+    """The symbol a story frame draws, wherever it is being drawn."""
+    sym.draw(ax, name, T, *(ACCENT_SYMBOL if accent else STORY_SYMBOL))
 
 
 # ----------------------------------------------------------------------
@@ -314,12 +319,33 @@ def _story_head(b, width=16, lines=4):
 
 def comp_icon(fig, ax, b, T):
     """The symbol the line named, in the middle. The one composition that is
-    about the subject rather than about the words."""
+    about the subject rather than about the words, so it is the only one that
+    draws the symbol at any size worth calling a picture."""
     name = b.get("symbol")
     if name and not b.get("rolling"):
         story_symbol(ax, name, T)
     elif not name:
         comp_type(fig, ax, b, T)
+
+
+def comp_accent(fig, ax, b, T):
+    """The words, with a small mark above them if the line named something.
+
+    This is the one to reach for when the match cannot be trusted to be
+    exactly right, which is most of the time: a briefcase the size of a
+    postage stamp beside a headline about a job is fine even when the line
+    was really about something else, and the same briefcase filling the frame
+    is not.
+    """
+    name = b.get("symbol")
+    if name and not b.get("rolling"):
+        story_symbol(ax, name, T, accent=True)
+    head = _story_head(b, 16, 3)
+    if head:
+        t = fig.text(0.5, 0.50, head, ha="center", va="center", fontsize=76,
+                     color=T.ink, fontweight="bold", linespacing=1.10)
+        _fit(fig, t, 1480)
+        stagecraft.letter(t, T)
 
 
 def comp_type(fig, ax, b, T):
@@ -349,7 +375,7 @@ def comp_card(fig, ax, b, T):
         edgecolor=mix(T.ink, T.bg, 0.45), linewidth=3.6))
     name = b.get("symbol")
     if name and not b.get("rolling"):
-        sym.draw(ax, name, T, 0.0, GROUND_Y + 6.0, 3.4)
+        sym.draw(ax, name, T, 0.0, GROUND_Y + 6.2, 2.8)
     elif not name:
         head = _story_head(b, 17, 4)
         if head:
@@ -404,15 +430,15 @@ def comp_watermark(fig, ax, b, T):
         stagecraft.letter(t, T)
 
 
-COMPOSITIONS = {"icon": comp_icon, "type": comp_type, "card": comp_card,
-                "band": comp_band, "split": comp_split,
+COMPOSITIONS = {"accent": comp_accent, "icon": comp_icon, "type": comp_type,
+                "card": comp_card, "band": comp_band, "split": comp_split,
                 "watermark": comp_watermark}
 
 # A composition built out of the headline already has the words in it, large.
 # Running the caption underneath as well prints the opening of the beat twice
 # in two sizes, which reads as a bug rather than as a subtitle. The words are
 # still in the subtitle track either way.
-TYPE_LED = ("type", "band", "split")
+TYPE_LED = ("type", "band", "split", "accent")
 
 
 def _pale(T):
