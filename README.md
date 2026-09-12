@@ -43,6 +43,30 @@ in that folder and run `./install.sh`. Same result, more steps.
 
 </details>
 
+<details>
+<summary>Installing a branch instead of main</summary>
+
+Set `STV_BRANCH` before the install line. This is how you try a change before
+it is merged. On Windows, in PowerShell:
+
+```
+$env:STV_BRANCH="the-branch"
+irm https://raw.githubusercontent.com/ChimaOzonwoye/script-to-vid/the-branch/install.ps1 | iex
+```
+
+On a Mac:
+
+```
+STV_BRANCH=the-branch bash -c "$(curl -fsSL https://raw.githubusercontent.com/ChimaOzonwoye/script-to-vid/the-branch/install.sh)"
+```
+
+The branch name appears twice on purpose. The one in the URL picks which copy
+of the installer you run, and `STV_BRANCH` tells that installer which copy of
+the app to download. Get them out of step and you will install main while
+believing you installed the branch.
+
+</details>
+
 ![Picking a template](docs/the-page.png)
 
 *The Look step. Every template shows a real still, and the light, the lettering
