@@ -110,7 +110,7 @@ def focus_of(x):
     return (x - X_MIN) / STAGE_W
 
 
-def _stage(fig, b=None, T=None, ground=GROUND_Y, focus=0.5):
+def _stage(fig, b=None, T=None, ground=GROUND_Y, focus=0.5, empty=False):
     """The axes every scene draws into, with the template already laid down.
 
     The template's ground and light go on first and the room on top of them,
@@ -122,7 +122,7 @@ def _stage(fig, b=None, T=None, ground=GROUND_Y, focus=0.5):
     ax.set_xlim(X_MIN, X_MIN + STAGE_W)
     ax.set_ylim(Y_MIN, Y_MIN + STAGE_H)
     if T is not None:
-        stagecraft.draw(ax, T, focus, ground)
+        stagecraft.draw(ax, T, focus, ground, empty)
     if b is not None:
         bg.draw(ax, b.get("background"), T, ground)
     return ax
@@ -238,7 +238,7 @@ def bottom_caption(fig, T, text):
     if not line:
         return
     t = fig.text(0.5, CAPTION_BAR_Y, line, ha="center", va="bottom",
-                 fontsize=40, color=T.ink, linespacing=1.22)
+                 fontsize=37, color=T.ink, linespacing=1.22)
     # a halo in the page colour whatever the template's lettering is, because
     # small text over rain or a photograph is the one place this cannot be
     # decorative
@@ -288,6 +288,20 @@ def _presenter_content(fig, T, b, side):
 def _story_head(b, width=16, lines=4):
     text = (b.get("caption") or "").strip().upper()
     return "\n".join(textwrap.wrap(text, width)[:lines]) if text else ""
+
+
+def comp_bare(fig, ax, b, T):
+    """Nothing in the middle. The ground, the light, the weather, the words
+    along the bottom, and that is the whole frame.
+
+    The other compositions are built from the headline, and the headline is
+    the first nine words of the paragraph. Set large in the middle while the
+    subtitle runs the same paragraph underneath, that is the narration twice
+    in two sizes. It is not a picture of anything, it is the sentence cut
+    short and made big. This is the honest version: the background carries
+    the shot and the words stay where subtitles go.
+    """
+    return
 
 
 def comp_type(fig, ax, b, T):
@@ -347,14 +361,16 @@ def comp_split(fig, ax, b, T):
         _fit(fig, t, 1000)
 
 
-COMPOSITIONS = {"type": comp_type, "card": comp_card,
+COMPOSITIONS = {"bare": comp_bare, "type": comp_type, "card": comp_card,
                 "band": comp_band, "split": comp_split}
 
 # A composition built out of the headline already has the words in it, large.
 # Running the caption underneath as well prints the opening of the beat twice
-# in two sizes, which reads as a bug rather than as a subtitle. The words are
-# still in the subtitle track either way.
-TYPE_LED = ("type", "band", "split")
+# in two sizes, which reads as a bug rather than as a subtitle. Every
+# composition except the bare one is in here, because every one of them is
+# built from the headline. Card was the one left out, and it was the one that
+# shipped printing the beat twice.
+TYPE_LED = ("type", "card", "band", "split")
 
 
 def _pale(T):
@@ -374,9 +390,9 @@ def scene_story(fig, b, T):
     The drawn cast is what makes this look like an explainer. Plenty of what
     people watch has nobody in it, and this is that shape.
     """
-    ax = _stage(fig, b, T, GROUND_Y, 0.5)
-    shape = getattr(T, "composition", "icon")
-    COMPOSITIONS.get(shape, comp_type)(fig, ax, b, T)
+    shape = getattr(T, "composition", "bare")
+    ax = _stage(fig, b, T, GROUND_Y, 0.5, empty=shape == "bare")
+    COMPOSITIONS.get(shape, comp_bare)(fig, ax, b, T)
     # this layout has no headline slot beside a figure, so "headline" and
     # "bottom" both mean the bar. Only "none" leaves the frame silent.
     if (getattr(T, "captions", "headline") != "none"

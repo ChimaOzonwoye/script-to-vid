@@ -79,6 +79,11 @@ def timings(pieces, start, seconds):
     return [(round(a, 3), round(b, 3)) for a, b in spans]
 
 
-def wrapped(piece, width=34):
-    """The piece as it is set, at most two lines."""
+def wrapped(piece, width=44):
+    """The piece as it is set, at most two lines.
+
+    Wide enough that a piece off `split` usually lands on one line. At 34 it
+    almost never did, and a subtitle that is two lines every time reads as a
+    block of text sitting in the picture rather than as a subtitle.
+    """
     return "\n".join(textwrap.wrap(piece, width)[:2])

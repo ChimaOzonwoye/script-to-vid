@@ -32,7 +32,7 @@ class Theme:
     layout: str = "presenter"   # "presenter", "story" (no cast) or
                                 # "photo" (pictures you brought)
     effect: str = "none"        # particles moving over the whole frame
-    composition: str = "type"   # the shape of a frame with no cast in it
+    composition: str = "bare"   # the shape of a frame with no cast in it
     family: str = "quiet"       # how the picker groups it
     blurb: str = ""         # one line describing the look, shown on the page
 
@@ -108,7 +108,7 @@ def mix(c1, c2, t):
 
 def _theme(name, label, bg, ink, a1, a2, ground="plain", light="flat",
            lettering="plain", dressing="none", captions="headline",
-           layout="presenter", effect="none", composition="type",
+           layout="presenter", effect="none", composition="bare",
            family="quiet", blurb="", **fixed):
     derived = dict(
         bg=bg, ink=ink, a1=a1, a2=a2,
@@ -179,41 +179,41 @@ THEMES.update({
         "nightfall", "Nightfall", "#171a2b", "#eeeaf2", "#c9a2e8", "#5fa8d3",
         ground="bars", light="vignette", lettering="plain",
         captions="bottom", layout="story",
-        composition="type",
+        composition="bare",
         family="story",
-        blurb="Storytelling: the line at the size of the frame, nothing else."),
+        blurb="Deep violet night, wide bands, subtitles along the bottom."),
     "downpour": _theme(
         "downpour", "Downpour", "#1b2430", "#e9eef2", "#7fb2d6", "#4a6a86",
         ground="arch", light="vignette", captions="bottom", layout="story",
         effect="rain",
-        composition="card",
+        composition="bare",
         family="story",
-        blurb="Rain on a dark window, the words on a card in the middle."),
+        blurb="Rain on a dark window, an arch of light behind it."),
     "snowfall": _theme(
         "snowfall", "Snowfall", "#243044", "#eef2f7", "#9fc4e8", "#6f86a8",
         ground="arch", light="glow", captions="bottom", layout="story",
         effect="snow",
-        composition="card",
+        composition="bare",
         family="story",
-        blurb="Snow falling, the line mounted on a card in the middle."),
+        blurb="Snow falling in a cold blue room."),
     "hearth": _theme(
         "hearth", "Hearth", "#2a1a16", "#f5e9de", "#e0743a", "#b3924f",
         ground="arch", light="glow", captions="bottom", layout="story",
         effect="embers",
-        composition="band",
+        composition="bare",
         family="story",
-        blurb="Warm dark room, embers rising, the line across a solid bar."),
+        blurb="Warm dark room with embers rising through it."),
     "attic": _theme(
         "attic", "Attic", "#efe4cf", "#241d14", "#c08a3e", "#6f7f6a",
         ground="rays", light="warm", captions="bottom", layout="story",
         effect="dust",
-        composition="split",
+        composition="bare",
         family="story",
-        blurb="Daylight and dust, a colour block down one side."),
+        blurb="Daylight through dust, warm and low."),
     "album": _theme(
         "album", "Your pictures", "#101218", "#f2f0ec", "#d8b06a", "#6f8fb0",
         ground="plain", light="vignette", captions="bottom", layout="photo",
-        composition="type",
+        composition="bare",
         family="story",
         blurb="Your own images, one per beat, fitted to the frame."),
     "studio": _theme(
@@ -256,7 +256,8 @@ DRESSING_LABELS = {"none": "Nothing", "board": "A board on the wall",
 # was asked for, so most of these are frames for one; the type led shapes are
 # there for a template that is about what is said rather than what it is
 # about, and for a line that named nothing the vocabulary knows.
-COMPOSITION_LABELS = {"card": "The words, mounted on a card",
+COMPOSITION_LABELS = {"bare": "Nothing, just the background",
+                      "card": "The words, mounted on a card",
                       "band": "The words across a solid bar",
                       "split": "A colour block down one side",
                       "type": "The words at the size of the frame"}

@@ -177,9 +177,10 @@ Ledger is built for money, with a lit desk and a chart on the wall behind.
 Studio has a board on the wall, for teaching something.
 
 **Storytelling**, six: Nightfall, Downpour, Snowfall, Hearth, Attic and Your
-pictures. No drawn figure at all. Plenty of what people watch has nobody in
-it, and a script does not stop being a script because there is no presenter in
-front of it. Four of them run weather over the frame, which is a short loop of
+pictures. No drawn figure and nothing in the middle of the frame: a lit
+backdrop, the weather over it, and the subtitle along the bottom. Plenty of
+what people watch has nobody in it, and a script does not stop being a script
+because there is no presenter in front of it. Four of them run weather over the frame, which is a short loop of
 transparent frames laid on repeat, so a ten minute video costs one loop to
 render. Rain, snow, dust, embers, bokeh and stars, and every one is built so
 the particles travel a whole number of wraps across its length. Get that wrong
@@ -324,6 +325,21 @@ what they should be looking at is the picture. The words run small along the
 bottom the way a subtitle does, and they are muxed into the file as a real
 subtitle track as well, so a player can turn them off.
 
+**Nothing goes in the middle of a storytelling frame.** The shapes that used
+to sit there were built from the headline, and the headline is the first nine
+words of the paragraph. Set large in the middle while the subtitle runs the
+same paragraph underneath, that is the narration twice, in two sizes. It is
+not a picture of anything, it is the sentence cut short and made big. A
+storytelling frame is now a backdrop, the light, the weather and the words
+where subtitles go. The four shapes that carry a headline are still there to
+choose, for a title card.
+
+The backdrop is its own thing rather than the presenter grounds, because
+those are set: a floor, a panel, a sunburst, all drawn to sit behind a figure
+that covers most of them. Bare, each one puts a hard horizontal edge across
+the middle where the floor meets the wall. A test renders every ground on an
+empty frame and fails on any row-to-row jump.
+
 **The pictures are yours or there are none.** There used to be a vocabulary of
 twenty-five drawn shapes, matched to the narration by keyword: money, a
 letter, a clock. It was removed. Keyword matching is a guess, and a guess is
@@ -361,7 +377,7 @@ Working and tested: the parser, the voiceover and its cache, all the scene
 layouts, the seventeen templates with their grounds, lights, lettering, side
 objects and weather, your own pictures, the logo and music, subtitles both
 burned small at the bottom and muxed as a track, the part renderer and its
-resume, the joiner, the installers for Windows and Mac, and the web app. 605
+resume, the joiner, the installers for Windows and Mac, and the web app. 608
 tests across unit, integration and end to end, with a real render in the
 integration ones.
 

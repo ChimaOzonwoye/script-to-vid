@@ -200,10 +200,15 @@ def test_the_frame_shape_is_a_choice_and_every_template_names_a_real_one():
     assert resolve("nightfall", composition="spiral").composition == \
         THEMES["nightfall"].composition
 
-    # the storytelling family has to actually differ, or grouping them is a lie
+    # The storytelling family all ship bare now, because every other shape is
+    # built from the headline and the headline is the first nine words of the
+    # paragraph blown up while the subtitle runs the same words underneath.
+    # What separates them is the palette, the light and the weather, so that
+    # is what has to differ or grouping them is a lie.
     story = by_family()["story"]
-    shapes = {t.composition for t in story.values()}
-    assert len(shapes) >= 4, f"only {len(shapes)} shapes across {len(story)}"
+    assert {t.composition for t in story.values()} == {"bare"}
+    looks = {(t.bg, t.a1, t.light, t.effect) for t in story.values()}
+    assert len(looks) == len(story), "two storytelling templates are the same look"
 
 
 def test_a_type_led_frame_does_not_print_the_words_twice():
@@ -216,3 +221,37 @@ def test_a_type_led_frame_does_not_print_the_words_twice():
     # it prints the opening of the beat twice
     assert "icon" not in scenes.TYPE_LED
     assert {"type", "band", "split"} <= set(scenes.TYPE_LED)
+
+
+def test_an_empty_frame_gets_a_backdrop_and_not_the_presenter_ground(tmp_path):
+    """The grounds are set: a floor, a panel, a sunburst, all drawn to sit
+    behind a figure that covers most of them. With nothing in front they stop
+    being background and become the subject, and each one puts a hard
+    horizontal edge across the middle where the floor meets the wall.
+
+    A flat wash has no such edge, so this looks for one: the strongest jump
+    between neighbouring rows, down the middle of the frame where no
+    subtitle reaches.
+    """
+    import numpy as np
+    from PIL import Image
+    from dataclasses import replace
+    from app import engine, stagecraft
+
+    beat = {"visual": "scene_story", "cast_i": 1, "say": "", "caption": "",
+            "rolling": ["x"]}
+
+    def worst_edge(T):
+        p = tmp_path / f"{T.ground}_{T.composition}.png"
+        engine.render_slide(dict(beat), p, T)
+        col = np.asarray(Image.open(p).convert("L")).astype(int)[:, 700:1220]
+        return int(np.abs(np.diff(col.mean(axis=1))).max())
+
+    story = THEMES["downpour"]
+    for ground in stagecraft.GROUNDS:
+        T = replace(story, ground=ground, effect="none")
+        assert worst_edge(T) <= 2, \
+            f"the {ground} ground leaves a hard edge across an empty frame"
+    # and the check is worth something: put a ground back and it shows up
+    hard = replace(story, ground="bars", effect="none", composition="card")
+    assert worst_edge(hard) > 2, "the test cannot tell a hard edge from a wash"
