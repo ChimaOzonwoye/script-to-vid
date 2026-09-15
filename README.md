@@ -86,24 +86,20 @@ drifting through it, and the line being spoken along the bottom.*
 
 Explaining something well takes narration, visuals, captions, branding and an
 edit. Paying people for that costs money and AI video tools charge per render.
-If you have something worth explaining and no budget, that is usually where it
-ends.
+If you have something worth explaining and no budget, that is where it ends.
 
-This does the whole production on your own computer for free.
-
-It is a first step, not a finish line. When you can afford better tools, use
-them. Not having the resources should not be the reason you never start.
+This does the whole production on your computer for free. It is a first step,
+not a finish line: when you can afford better tools, use them.
 
 ## Why there is no AI video in this
 
-Generating video or images with a model needs a graphics card most computers
-do not have, and paying a service to do it costs money per video. Either way
-the requirement is the thing that stops people.
+Generating video with a model needs a graphics card most computers do not
+have, or a service that charges per video. Either way the requirement is the
+thing that stops people.
 
 So everything is drawn from code with matplotlib. It runs on an ordinary
-laptop, costs nothing, and never gets slower or more expensive the more you
-make. It also means every frame is reproducible: the same script and the same
-settings give the same video, which is what makes the cache safe.
+laptop, costs nothing, and never gets slower the more you make. Every frame is
+reproducible too, which is what makes the cache safe.
 
 ## How it works
 
@@ -132,8 +128,7 @@ Nothing leaves your machine except the edge-tts requests. The web app binds to
 ## Use
 
 Your first project opens with an example script already in it. Press
-**Generate** and watch a real video come out before you write anything of your
-own.
+**Generate** and see a finished video before you write anything of your own.
 
 After that: write your script, choose a voice, pick a template, add a logo and
 music if you want them, then Generate. Download the MP4 and the subtitle file
@@ -147,9 +142,8 @@ Re-running is cheap. Editing one line only remakes that line. Changing the
 look reuses the whole voiceover. Changing the voice remakes the narration and
 nothing else.
 
-A long video is encoded in parts of a couple of minutes each, and finished
-parts are kept. If a render is interrupted, or the computer gives up, starting
-it again picks up where it stopped rather than going back to the beginning.
+A long video is encoded in parts and finished parts are kept, so a render that
+is interrupted picks up where it stopped.
 
 ## Templates
 
@@ -164,13 +158,11 @@ The same palette under a spotlight is a different film, so the light is a
 choice of its own and can be moved onto any template. So can the lettering,
 which sets the words plain, haloed, with a drop shadow, or in a solid slab.
 
-A template can also stand one thing beside the speaker: a board or a chart on
-the wall behind them, a plant, flowers, an animal. It goes in the corner on
-their side, because the headline runs most of the way to the other edge and
-anything tall enough to be worth drawing over there lands on the sentence.
-Rooms are a separate thing and still exist: a room is furniture across the
-whole frame that you pick per beat with `> scene:`, this is one object a
-template carries everywhere.
+A template can also stand one thing beside the speaker: a board, a chart, a
+plant, flowers, an animal. It goes in the corner on their side, because the
+headline runs most of the way to the other edge and anything tall enough to be
+worth drawing there lands on the sentence. Rooms are separate and still exist:
+a room is furniture across the whole frame, picked per beat with `> scene:`.
 
 Seventeen ship, in three families.
 
@@ -209,13 +201,12 @@ grades everything else and the video holds together. A beat with no picture
 left for it falls back to the same bare backdrop the rest of the family uses.
 
 The picker shows a real still of each one. A name and three colour dots cannot
-tell anyone that Coral has a sunburst behind the speaker, and a template is the
-one setting nobody can judge without seeing it. The stills are drawn the first
-time you open that step and kept, so it happens once.
+tell you that Coral has a sunburst behind the speaker, and a template is the
+one setting you cannot judge without seeing it. The stills are drawn the first
+time you open that step and kept.
 
-Picking a dark template does not take the app dark with it. The page borrows
-the template's hue and not its lightness, because a dark app was never the
-design.
+Picking a dark template does not take the app dark with it: the page borrows
+its hue, not its lightness.
 
 Nothing in any template uses a trademarked character, logo or brand mark, so a
 video made with one is safe to monetise.
@@ -228,8 +219,8 @@ changes and the side swaps at a chapter, which reads as a cut to the other
 camera.
 
 It used to rotate four layouts and move the figure every beat, which made a
-run of ordinary paragraphs read as a slideshow. The other layouts are still
-there and are reached by naming them in a direction.
+run of ordinary paragraphs read as a slideshow. Those layouts are still there,
+reached by naming them in a direction.
 
 The headline is the first sentence of the beat when it is short enough,
 otherwise the first comma clause, otherwise a word count with trailing
@@ -246,13 +237,12 @@ Two reasons. A long script can be made as two or three projects and joined at
 the end, if you would rather work in sittings than wait for one render. And a
 joiner is useful on its own, so it takes video files from anywhere.
 
-Videos made by this app are never re-encoded, because they already share one
-shape, so joining them takes seconds however long they are. A video from
-somewhere else is converted to that shape first, which takes minutes, and the
-page says which of the two is about to happen before you start. Anything of a
-different size is letterboxed rather than stretched, and a clip with no sound
-has silence put in, because otherwise the audio would stop at that point and
-never come back.
+Videos made here already share one shape, so joining them is a stream copy:
+seconds, however long they are. A video from somewhere else is converted
+first, which takes minutes, and the page says which of the two is about to
+happen before you start. Anything of a different size is letterboxed rather
+than stretched, and a clip with no sound gets silence, or the audio would stop
+there and never come back.
 
 ## The script format
 
@@ -310,77 +300,72 @@ the top and nothing below it rebuilds. This is also why the same script always
 gives the same video.
 
 **One music bed for the whole video, sliced across the parts.** A bed built
-per part fades down at the end of one and up at the start of the next, which
-measures as a hole about a second and a half wide at every join: the mix drops
-to 18 where the unsplit render sits at 224. There is one bed and each part
-reads its own stretch of it.
+per part fades down at the end of one and up at the start of the next, leaving
+a hole a second and a half wide at every join: the mix drops to 18 where the
+unsplit render sits at 224. There is one bed now and each part reads its own
+stretch of it.
 
 **Parts are cut between beats and nowhere else.** A beat is a paragraph, so a
 part can only end where the script had a blank line and the video already cut.
 A part cannot end part-way through a sentence and rejoining is a stream copy.
 
 **The app page does not follow a dark template.** It borrows the template's
-hue and not its lightness. A dark app was never designed, and a template that
-took the whole app dark with it would have been a worse surprise than a page
-that stays pale.
+hue and not its lightness. A dark app was never designed, and a template
+dragging the whole interface dark is a worse surprise than a page that stays
+pale.
 
 **The interface is not a form.** One column of equal cards down the middle of
-a wide screen is the shape of a form whatever the cards are made of, so the
-work column has an index of the steps beside it and the script step gets more
-room than the settings. Three passes at the card edges and surfaces did not
-fix it, because the problem was never the edges.
+a wide screen is the shape of a form whatever the cards are made of. The work
+column has an index of the steps beside it and the script step gets more room
+than the settings. Three passes at the card edges did not fix it, because the
+problem was never the edges.
 
 **No trademarked characters, logos or brand marks in any template.** Reference
 material for this kind of video is full of them. Copying one would hand a
 claim over somebody's video to a company that had nothing to do with it.
 
 **Subtitles go at the bottom and the middle is left alone.** A caption set
-large in the centre of the frame is the thing the viewer is looking at, and
-what they should be looking at is the picture. The words run small along the
-bottom the way a subtitle does, and they are muxed into the file as a real
-subtitle track as well, so a player can turn them off.
+large in the centre is the thing the viewer looks at, and they should be
+looking at the picture. The words run small along the bottom, and go into the
+file as a real subtitle track too, so a player can turn them off.
 
 **Nothing goes in the middle of a storytelling frame.** The shapes that used
 to sit there were built from the headline, and the headline is the first nine
 words of the paragraph. Set large in the middle while the subtitle runs the
-same paragraph underneath, that is the narration twice, in two sizes. It is
-not a picture of anything, it is the sentence cut short and made big. A
-storytelling frame is now a backdrop, the light, the weather and the words
-where subtitles go. The four shapes that carry a headline are still there to
-choose, for a title card.
+same paragraph underneath, that is the narration twice in two sizes: not a
+picture of anything, just the sentence cut short and made big. The frame is
+now a backdrop, the light, the weather and the words. The four shapes that
+carry a headline are still there to pick, for a title card.
 
-The backdrop is its own thing rather than the presenter grounds, because
-those are set: a floor, a panel, a sunburst, all drawn to sit behind a figure
-that covers most of them. Bare, each one puts a hard horizontal edge across
-the middle where the floor meets the wall. A test renders every ground on an
-empty frame and fails on any row-to-row jump.
+The backdrop is its own thing rather than one of the presenter grounds. Those
+are set: a floor, a panel, a sunburst, drawn to sit behind a figure that
+covers most of them. Bare, each puts a hard horizontal edge across the middle
+where the floor meets the wall. A test renders every ground on an empty frame
+and fails on any row-to-row jump.
 
-**The pictures are yours or there are none.** There used to be a vocabulary of
-twenty-five drawn shapes, matched to the narration by keyword: money, a
-letter, a clock. It was removed. Keyword matching is a guess, and a guess is
-wrong often enough to be distracting. "Future growth that money could have
-earned" matches on the word money and draws a banknote, in a sentence about
-the growth that never happened. Shrinking it to a corner mark did not fix
-that, it only made the wrong picture smaller. Nothing here runs a model that
-could do it properly, so it does not pretend to: the frame shows the words
-the script wrote, or the images you uploaded, both of which are exactly
-right by construction.
+**The pictures are yours or there are none.** Twenty-five drawn shapes used to
+be matched to the narration by keyword: money, a letter, a clock. Keyword
+matching is a guess, and a guess is wrong often enough to distract. "Future
+growth that money could have earned" matches on money and draws a banknote, in
+a sentence about growth that never happened. Shrinking it to a corner mark
+only made the wrong picture smaller. Nothing here runs a model that could do
+it properly, so it stopped pretending: the frame shows the words the script
+wrote, or the images you uploaded, and both are right by construction.
 
 **One encode does not fill a machine, so several run at once.** The slow zoom
-works on a frame four times the size of the output, and that filter is single
-threaded, so the encoder spends much of its time waiting on it. One ten
-second segment measured 12.0s alone and 3.2s with four in flight. Segments
-are keyed on their own beat and share nothing, so they run on a small pool,
-and so do the parts. The output is byte for byte what the serial render
-produced, which is a test rather than a claim. `STV_JOBS` sets the pool size
-if you want your cores back for something else.
+works on a frame four times the size of the output and that filter is single
+threaded, so the encoder spends much of its time waiting on it. One ten second
+segment measured 12.0s alone and 3.2s with four in flight. Segments are keyed
+on their own beat and share nothing, so they run on a small pool, and so do
+the parts. The output is byte for byte what the serial render produced, which
+is a test rather than a claim. `STV_JOBS` sets the pool size.
 
 **The final pass uses a fast preset.** It shipped on x264 preset medium at
-crf 20. Measured against veryfast at crf 22 on a hundred second render: 48%
-slower for a file 7% larger and an SSIM difference of 0.0003. On flat colour
-and large type, where a fast preset would band if it were going to, 0.99935
-against 0.99871. It was spending half the render refining bits the
-intermediate encode had already thrown away.
+crf 20. Against veryfast at crf 22, on a hundred second render: 48% slower for
+a file 7% larger, an SSIM difference of 0.0003. On flat colour and large type,
+where a fast preset would band if it were going to, 0.99935 against 0.99871.
+It was spending half the render refining bits the intermediate encode had
+already thrown away.
 
 **No YouTube downloader.** It would breach the terms of service and put
 Content ID claims on videos people are trying to monetise, which is the
@@ -388,18 +373,16 @@ opposite of the point.
 
 ## Where this is
 
-Working and tested: the parser, the voiceover and its cache, all the scene
-layouts, the seventeen templates with their grounds, lights, lettering, side
-objects and weather, your own pictures, the logo and music, subtitles both
-burned small at the bottom and muxed as a track, the part renderer and its
-resume, the joiner, the installers for Windows and Mac, and the web app. 610
-tests across unit, integration and end to end, with a real render in the
-integration ones.
+Everything described above works and is tested: the parser, the voiceover and
+its cache, the scene layouts, the seventeen templates, your own pictures, the
+logo and music, subtitles, the part renderer and its resume, the joiner, the
+installers and the web app. 610 tests across unit, integration and end to end,
+with a real render in the integration ones.
 
-On four cores a hundred second video takes about two and a half minutes to
-render, most of it in ffmpeg. It was four and a half before the encodes were
-made to run alongside each other and the final pass stopped using a preset
-it was not getting anything for.
+On four cores a hundred second video takes about two and a half minutes,
+almost all of it in ffmpeg. It was four and a half before the encodes were
+made to run alongside each other and the final pass stopped using a preset it
+was getting nothing for.
 
 Known gaps:
 
@@ -427,10 +410,10 @@ The code is MIT licensed. See [LICENSE](LICENSE).
 
 ## Contributing
 
-Contributions are welcome. Bugs, new scene layouts, new props, more voices,
-better installers, anything. Open an issue or send a pull request.
+Contributions are welcome: bugs, scene layouts, props, voices, installers,
+anything. Open an issue or send a pull request.
 
-The one rule: this has to stay usable by someone who has never opened a
+The one rule is that this stays usable by someone who has never opened a
 terminal. A change that adds a setup step, a config file to edit, or an error
 message only a developer can read is not an improvement here, however good the
 code is.
