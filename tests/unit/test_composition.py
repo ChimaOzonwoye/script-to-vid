@@ -212,3 +212,41 @@ def test_the_page_serves_its_own_fonts():
         assert f"/static/fonts/{face}.woff2" in css
         assert (root / "app" / "static" / "fonts" / f"{face}.woff2").exists()
     assert (root / "app" / "static" / "fonts" / "OFL.txt").exists()
+
+
+def test_the_bare_frame_draws_nothing_in_the_middle():
+    """The complaint that produced it: the middle held the first nine words of
+    the paragraph, set large, while the subtitle ran the same paragraph along
+    the bottom. That is not a picture of anything, it is the sentence cut
+    short and made big.
+    """
+    import numpy as np
+    from PIL import Image
+    import tempfile
+    from pathlib import Path
+    from dataclasses import replace
+    from app import engine
+    from app.themes import THEMES
+
+    beat = {"visual": "scene_story", "cast_i": 1, "say": "",
+            "caption": "Mistake number three: ignoring fees", "rolling": ["x"]}
+    T = replace(THEMES["nightfall"], effect="none")
+    with tempfile.TemporaryDirectory() as d:
+        a = Path(d) / "with_words.png"
+        b = Path(d) / "bare.png"
+        engine.render_slide(dict(beat), a, replace(T, composition="type"))
+        engine.render_slide(dict(beat), b, T)
+        ink = lambda p: np.asarray(Image.open(p).convert("L")).astype(int)
+        # the headline version puts bright type across the middle band
+        mid = slice(340, 740)
+        assert ink(a)[mid].max() > 200
+        assert ink(b)[mid].max() < 120, "something is still drawn in the middle"
+
+
+def test_no_composition_prints_the_beat_twice():
+    """Every shape built out of the headline has to suppress the burned
+    subtitle, or the opening of the beat appears in two sizes at once. Card
+    was the one left off that list and it was the one that shipped doing it.
+    """
+    from app import scenes
+    assert set(scenes.COMPOSITIONS) - set(scenes.TYPE_LED) == {"bare"}

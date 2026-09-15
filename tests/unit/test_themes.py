@@ -128,3 +128,130 @@ def test_a_template_can_stand_something_beside_the_speaker():
 def test_nothing_stands_beside_the_speaker_in_the_quiet_family():
     for name in ("cream", "paper", "sky", "mint"):
         assert THEMES[name].dressing == "none"
+
+
+def test_the_words_can_be_moved_off_the_middle_of_the_frame():
+    """The big centred headline reads as a subtitle and is not one: it is a
+    design element sitting where the picture should be."""
+    from app.themes import CAPTION_LABELS, resolve
+    assert set(CAPTION_LABELS) == {"headline", "bottom", "none"}
+    for T in THEMES.values():
+        assert T.captions in CAPTION_LABELS, (T.name, T.captions)
+    assert resolve("cream", captions="bottom").captions == "bottom"
+    assert resolve("cream", captions="middle").captions == "headline"
+
+
+def test_a_template_can_have_no_cast():
+    """Plenty of narrated video has nobody in it. The swap is a property of
+    the look, so the same script renders both ways."""
+    assert THEMES["nightfall"].layout == "story"
+    for name in ("cream", "paper", "sky", "mint"):
+        assert THEMES[name].layout == "presenter"
+        assert THEMES[name].captions == "headline"
+
+
+def test_a_story_template_never_leaves_the_line_unreadable():
+    """That layout has no headline slot, so "headline" there has to mean the
+    caption bar rather than nothing at all."""
+    from app import scenes
+    assert scenes.VISUALS["scene_story"] is scenes.scene_story
+
+
+def test_the_picker_can_show_one_family_at_a_time():
+    """Sixteen templates will not fit on a step and would not be readable if
+    they did. Every template has to land in a group or it is unreachable."""
+    from app.themes import FAMILY_LABELS, by_family
+    grouped = by_family()
+    assert set(grouped) == set(FAMILY_LABELS)
+    seen = {k for ts in grouped.values() for k in ts}
+    assert seen == set(THEMES), set(THEMES) - seen
+    for fam, ts in grouped.items():
+        assert ts, f"{fam} is empty and would show an empty tab"
+
+
+def test_weather_is_a_choice_of_its_own():
+    from app.themes import EFFECT_LABELS, resolve
+    from app.effects import EFFECTS
+    assert set(EFFECT_LABELS) == {"none", *EFFECTS}
+    for T in THEMES.values():
+        assert T.effect in EFFECT_LABELS, (T.name, T.effect)
+    assert resolve("cream", effect="snow").effect == "snow"
+    assert resolve("cream", effect="hurricane").effect == "none"
+
+
+def test_every_template_names_a_layout_that_exists():
+    from app import scenes
+    for T in THEMES.values():
+        assert T.layout in ("presenter", "story", "photo"), (T.name, T.layout)
+    assert "scene_photo" in scenes.VISUALS
+
+
+def test_the_frame_shape_is_a_choice_and_every_template_names_a_real_one():
+    """Six templates with one shape between them are one template in six
+    colours, which is what they looked like."""
+    from app.scenes import COMPOSITIONS
+    from app.themes import COMPOSITION_LABELS, by_family, resolve
+    assert set(COMPOSITION_LABELS) == set(COMPOSITIONS)
+    for T in THEMES.values():
+        assert T.composition in COMPOSITIONS, (T.name, T.composition)
+    assert resolve("nightfall", composition="band").composition == "band"
+    # an unknown value leaves the template's own shape alone rather than
+    # snapping it to some default
+    assert resolve("nightfall", composition="spiral").composition == \
+        THEMES["nightfall"].composition
+
+    # The storytelling family all ship bare now, because every other shape is
+    # built from the headline and the headline is the first nine words of the
+    # paragraph blown up while the subtitle runs the same words underneath.
+    # What separates them is the palette, the light and the weather, so that
+    # is what has to differ or grouping them is a lie.
+    story = by_family()["story"]
+    assert {t.composition for t in story.values()} == {"bare"}
+    looks = {(t.bg, t.a1, t.light, t.effect) for t in story.values()}
+    assert len(looks) == len(story), "two storytelling templates are the same look"
+
+
+def test_a_type_led_frame_does_not_print_the_words_twice():
+    """The big type is built from the headline and the first caption piece
+    comes from the same sentence, so running both prints the opening of every
+    beat twice in two sizes."""
+    from app import scenes
+    assert set(scenes.TYPE_LED) <= set(scenes.COMPOSITIONS)
+    # every shape that builds itself out of the headline has to be listed, or
+    # it prints the opening of the beat twice
+    assert "icon" not in scenes.TYPE_LED
+    assert {"type", "band", "split"} <= set(scenes.TYPE_LED)
+
+
+def test_an_empty_frame_gets_a_backdrop_and_not_the_presenter_ground(tmp_path):
+    """The grounds are set: a floor, a panel, a sunburst, all drawn to sit
+    behind a figure that covers most of them. With nothing in front they stop
+    being background and become the subject, and each one puts a hard
+    horizontal edge across the middle where the floor meets the wall.
+
+    A flat wash has no such edge, so this looks for one: the strongest jump
+    between neighbouring rows, down the middle of the frame where no
+    subtitle reaches.
+    """
+    import numpy as np
+    from PIL import Image
+    from dataclasses import replace
+    from app import engine, stagecraft
+
+    beat = {"visual": "scene_story", "cast_i": 1, "say": "", "caption": "",
+            "rolling": ["x"]}
+
+    def worst_edge(T):
+        p = tmp_path / f"{T.ground}_{T.composition}.png"
+        engine.render_slide(dict(beat), p, T)
+        col = np.asarray(Image.open(p).convert("L")).astype(int)[:, 700:1220]
+        return int(np.abs(np.diff(col.mean(axis=1))).max())
+
+    story = THEMES["downpour"]
+    for ground in stagecraft.GROUNDS:
+        T = replace(story, ground=ground, effect="none")
+        assert worst_edge(T) <= 2, \
+            f"the {ground} ground leaves a hard edge across an empty frame"
+    # and the check is worth something: put a ground back and it shows up
+    hard = replace(story, ground="bars", effect="none", composition="card")
+    assert worst_edge(hard) > 2, "the test cannot tell a hard edge from a wash"

@@ -28,6 +28,12 @@ class Theme:
     light: str = "flat"     # the gradient laid over the ground
     lettering: str = "plain"   # how headline type is treated
     dressing: str = "none"     # one object standing beside the speaker
+    captions: str = "headline"  # where the words go, if anywhere
+    layout: str = "presenter"   # "presenter", "story" (no cast) or
+                                # "photo" (pictures you brought)
+    effect: str = "none"        # particles moving over the whole frame
+    composition: str = "bare"   # the shape of a frame with no cast in it
+    family: str = "quiet"       # how the picker groups it
     blurb: str = ""         # one line describing the look, shown on the page
 
 
@@ -101,7 +107,9 @@ def mix(c1, c2, t):
 
 
 def _theme(name, label, bg, ink, a1, a2, ground="plain", light="flat",
-           lettering="plain", dressing="none", blurb="", **fixed):
+           lettering="plain", dressing="none", captions="headline",
+           layout="presenter", effect="none", composition="bare",
+           family="quiet", blurb="", **fixed):
     derived = dict(
         bg=bg, ink=ink, a1=a1, a2=a2,
         panel=mix(bg, ink, 0.04),
@@ -113,8 +121,10 @@ def _theme(name, label, bg, ink, a1, a2, ground="plain", light="flat",
     derived.update(fixed)
     derived["ui"] = _ui_accent(derived["a1"], derived["a2"], ink)
     return Theme(name=name, label=label, ground=ground, light=light,
-                 lettering=lettering, dressing=dressing, blurb=blurb,
-                 **derived)
+                 lettering=lettering, dressing=dressing,
+                 captions=captions, layout=layout, effect=effect,
+                 composition=composition, family=family,
+                 blurb=blurb, **derived)
 
 
 # Cream keeps the hand-picked values the engine shipped with. The blends
@@ -138,30 +148,78 @@ THEMES.update({
     "mustard": _theme(
         "mustard", "Mustard", "#e6b23c", "#17140d", "#d0472a", "#0e6b60",
         ground="stage", light="glow", lettering="slab",
+        family="bold",
         blurb="Saturated yellow, a solid floor, warm light on the speaker."),
     "riso": _theme(
         "riso", "Riso print", "#f2ece0", "#16120e", "#d8443a", "#2a4fbf",
         ground="dots", light="flat", lettering="drop",
+        family="bold",
         blurb="Two ink colours on paper stock, flat and printed."),
     "coral": _theme(
         "coral", "Coral", "#ef8f6c", "#2a1410", "#f3cd68", "#1a6b74",
         ground="rays", light="warm", lettering="halo",
+        family="bold",
         blurb="Warm ground, a sunburst behind the speaker, light from above."),
     "slate": _theme(
         "slate", "Slate", "#212c3a", "#f1eee4", "#efa531", "#4fb3a5",
         ground="arch", light="spot", lettering="drop",
+        family="bold",
         blurb="Dark room, one panel behind the speaker, a pool of light."),
     "forest": _theme(
         "forest", "Deep forest", "#134339", "#f0f2e4", "#e8c46a", "#7cbd99",
         ground="bars", light="vignette", lettering="halo", dressing="plant",
+        family="bold",
         blurb="Deep green, banded ground, a plant in the corner."),
     "ledger": _theme(
         "ledger", "Ledger", "#1d3a4d", "#f4f1e6", "#e0a33a", "#5aa9a0",
         ground="stage", light="glow", lettering="drop", dressing="growth",
+        family="bold",
         blurb="For money: a lit desk, a chart on the wall behind."),
+    "nightfall": _theme(
+        "nightfall", "Nightfall", "#171a2b", "#eeeaf2", "#c9a2e8", "#5fa8d3",
+        ground="bars", light="vignette", lettering="plain",
+        captions="bottom", layout="story",
+        composition="bare",
+        family="story",
+        blurb="Deep violet night, wide bands, subtitles along the bottom."),
+    "downpour": _theme(
+        "downpour", "Downpour", "#1b2430", "#e9eef2", "#7fb2d6", "#4a6a86",
+        ground="arch", light="vignette", captions="bottom", layout="story",
+        effect="rain",
+        composition="bare",
+        family="story",
+        blurb="Rain on a dark window, an arch of light behind it."),
+    "snowfall": _theme(
+        "snowfall", "Snowfall", "#243044", "#eef2f7", "#9fc4e8", "#6f86a8",
+        ground="arch", light="glow", captions="bottom", layout="story",
+        effect="snow",
+        composition="bare",
+        family="story",
+        blurb="Snow falling in a cold blue room."),
+    "hearth": _theme(
+        "hearth", "Hearth", "#2a1a16", "#f5e9de", "#e0743a", "#b3924f",
+        ground="arch", light="glow", captions="bottom", layout="story",
+        effect="embers",
+        composition="bare",
+        family="story",
+        blurb="Warm dark room with embers rising through it."),
+    "attic": _theme(
+        "attic", "Attic", "#efe4cf", "#241d14", "#c08a3e", "#6f7f6a",
+        ground="rays", light="warm", captions="bottom", layout="story",
+        effect="dust",
+        composition="bare",
+        family="story",
+        blurb="Daylight through dust, warm and low."),
+    "album": _theme(
+        "album", "Your pictures", "#101218", "#f2f0ec", "#d8b06a", "#6f8fb0",
+        ground="plain", light="vignette", captions="bottom", layout="photo",
+        composition="bare",
+        family="story",
+        blurb="Your own images, one per beat, fitted to the frame."),
     "studio": _theme(
         "studio", "Studio", "#f1e7d8", "#1a1712", "#c2603f", "#3f6f82",
         ground="arch", light="warm", lettering="plain", dressing="board",
+        family="bold",
         blurb="A warm room with a board on the wall, for teaching."),
 })
 
@@ -184,8 +242,53 @@ DRESSING_LABELS = {"none": "Nothing", "board": "A board on the wall",
                    "growth": "A chart on the wall", "plant": "A plant",
                    "flowers": "Flowers", "cat": "An animal"}
 
+# Where the spoken words go on screen. The big centred headline was the only
+# option and it gets read as a subtitle, which it is not: it is a design
+# element competing with the thing the beat is about. "bottom" puts the words
+# where a subtitle belongs and leaves the middle of the frame for a picture.
+# "none" leaves the burned in words out entirely; final.srt still carries them
+# and any player can switch them on.
+# The picker cannot put sixteen of these on screen at once, so they are
+# grouped and one group is shown at a time. The grouping is by what the
+# template is for rather than by colour: a pale page with a headline and a
+# dark room with rain in it are different jobs, not different palettes.
+# The shape of a frame with no cast in it. A picture in the middle is what
+# was asked for, so most of these are frames for one; the type led shapes are
+# there for a template that is about what is said rather than what it is
+# about, and for a line that named nothing the vocabulary knows.
+COMPOSITION_LABELS = {"bare": "Nothing, just the background",
+                      "card": "The words, mounted on a card",
+                      "band": "The words across a solid bar",
+                      "split": "A colour block down one side",
+                      "type": "The words at the size of the frame"}
 
-def resolve(name, light=None, lettering=None, dressing=None):
+FAMILY_LABELS = {"quiet": "Quiet", "bold": "Bold", "story": "Storytelling"}
+
+FAMILY_BLURBS = {
+    "quiet": "A pale page and even light. The palette does the work.",
+    "bold": "A ground and a light of its own, with a presenter.",
+    "story": "No cast. A lit background, the words at the bottom, and room "
+             "in the middle for the picture.",
+}
+
+
+def by_family():
+    """The templates grouped for the picker, in the order the groups are shown."""
+    return {fam: {k: t for k, t in THEMES.items() if t.family == fam}
+            for fam in FAMILY_LABELS}
+
+
+EFFECT_LABELS = {"none": "Still", "rain": "Rain", "snow": "Snow",
+                 "dust": "Dust in the light", "embers": "Embers",
+                 "bokeh": "Soft lights", "stars": "Stars"}
+
+CAPTION_LABELS = {"headline": "A headline beside the speaker",
+                  "bottom": "Small, at the bottom",
+                  "none": "None on screen, subtitle file only"}
+
+
+def resolve(name, light=None, lettering=None, dressing=None,
+            captions=None, effect=None, composition=None):
     """The template to render with, after any choices made on top of it."""
     T = THEMES.get(name, THEMES[DEFAULT_THEME])
     changes = {}
@@ -195,4 +298,10 @@ def resolve(name, light=None, lettering=None, dressing=None):
         changes["lettering"] = lettering
     if dressing in DRESSING_LABELS:
         changes["dressing"] = dressing
+    if captions in CAPTION_LABELS:
+        changes["captions"] = captions
+    if effect in EFFECT_LABELS:
+        changes["effect"] = effect
+    if composition in COMPOSITION_LABELS:
+        changes["composition"] = composition
     return replace(T, **changes) if changes else T

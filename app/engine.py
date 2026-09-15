@@ -39,6 +39,9 @@ from matplotlib.colors import to_rgb
 from PIL import Image
 
 from . import animate
+from . import captions
+from . import effects
+from . import images
 from . import stagecraft
 from .themes import mix
 from .voices import DEFAULT_VOICE as VOICE, DEFAULT_RATE as RATE
@@ -61,11 +64,63 @@ TTS_PARALLEL = 4            # how many voice requests to run at once
 
 WPM = 155                   # matches the default voice at the default rate
 
-ENGINE_V = "4"              # bump to invalidate every cached segment
+# The final pass, measured on a hundred second render rather than chosen.
+# Against the preset medium and crf 20 this shipped with, veryfast at crf 22
+# came out 48% faster and 7% smaller, and SSIM against the same source moved
+# from 0.9409 to 0.9406. On a frame of flat colour and large type, which is
+# where a fast preset would band or ring if it were going to, 0.99935 to
+# 0.99871. Neither is a difference anybody can see. The slower preset was
+# spending half the render on bits the first encode had already thrown away.
+FINAL_PRESET = "veryfast"
+FINAL_CRF = "22"
+
+ENGINE_V = "5"              # bump to invalidate every cached segment
 
 
 class RenderError(Exception):
     """A stage of the pipeline failed. str() is safe to show a user."""
+
+
+def workers():
+    """How many encodes to run at once.
+
+    ffmpeg threads its encoder but not the zoom filter, and the zoom is the
+    expensive half here, so one process does not fill a machine. Measured on
+    four cores: one at a time 12.0s per ten second segment, four at a time
+    3.2s. Past the core count it stops helping and only costs memory, so this
+    is capped there and at four, which is where the curve flattens. STV_JOBS
+    overrides it, and 1 gives back the old one-at-a-time behaviour.
+    """
+    try:
+        n = int(os.environ.get("STV_JOBS", "0"))
+    except ValueError:
+        n = 0
+    return max(1, n) if n else max(1, min(4, os.cpu_count() or 1))
+
+
+def in_flight(fn, items, done=None):
+    """Run fn over items on a small pool, reporting as each one lands.
+
+    The work is ffmpeg in a subprocess, so threads are the right tool: the
+    interpreter lock is released for the whole of every call. An exception in
+    a worker is raised here, after the rest have been told to stop, so a
+    failure still reaches the page as a failure.
+    """
+    items = list(items)
+    n = min(workers(), len(items))
+    if n <= 1:
+        for k, it in enumerate(items, 1):
+            fn(it)
+            if done:
+                done(k)
+        return
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    with ThreadPoolExecutor(max_workers=n) as pool:
+        futures = [pool.submit(fn, it) for it in items]
+        for k, f in enumerate(as_completed(futures), 1):
+            f.result()
+            if done:
+                done(k)
 
 
 # ----------------------------------------------------------------------
@@ -605,22 +660,64 @@ def _file_hash(path):
     return hashlib.sha1(Path(path).read_bytes()).hexdigest() if Path(path).exists() else "none"
 
 
-def _prepared(beats, project):
+def _prepared(beats, project, theme=None):
     """Copy of the beats with everything a slide depends on made explicit,
     so hashing a beat covers all of its inputs."""
     out = []
     logo = project / "logo.png"
+    beats = images.assign(beats, project)
     for b in beats:
         b = dict(b)
         if b["visual"] == "outro" and logo.exists():
             b["logo_hash"] = _file_hash(logo)
+        if b.get("image"):
+            # the path is what draws it, the hash is what makes replacing a
+            # picture under the same name rebuild the segment
+            b["image_hash"] = _file_hash(Path(b["image"]))
+        # imported here rather than at the top, the way animated() does it,
+        # because scenes reaches back into this module
+        from .scenes import TYPE_LED
+        type_led = (getattr(theme, "layout", "") == "story"
+                    and getattr(theme, "composition", "type") in TYPE_LED)
+        if (theme is not None and not type_led
+                and getattr(theme, "captions", "headline") == "bottom"):
+            pieces = captions.split(b.get("say"))
+            # one piece is not rolling, it is a caption, and the slide can
+            # carry it without an overlay
+            if len(pieces) > 1:
+                b["rolling"] = pieces
         out.append(b)
     return out
 
 
-def animated(beat):
-    """Whether this beat has a character in it to blink and speak."""
+def caption_frame(text, theme, dst):
+    """One caption piece on a transparent frame, ready to lay over a beat.
+
+    Transparent because a beat is one slide however many caption pieces the
+    paragraph came to. Drawing the pieces into the slide instead would turn a
+    six slide render into six times however many pieces.
+    """
     from . import scenes
+    fig = plt.figure(figsize=(W / 100, H / 100), dpi=100)
+    fig.patch.set_alpha(0)
+    scenes.bottom_caption(fig, theme, text)
+    fig.savefig(dst, transparent=True, facecolor="none")
+    plt.close(fig)
+    return dst
+
+
+def animated(beat, theme=None):
+    """Whether this beat has a character in it to blink and speak.
+
+    The template gets a say because it can take the cast away: an undirected
+    beat is drawn as a story or a photo frame when the look asks for one, and
+    there is then no mouth to move. Without this check those beats were
+    rendered six times over, once per mouth and eye position, for a face that
+    is never drawn, and then played back as a sequence of identical frames.
+    """
+    from . import scenes
+    if theme is not None and getattr(theme, "layout", "presenter") != "presenter":
+        return False
     return beat["visual"] in scenes.VISUALS
 
 
@@ -686,7 +783,7 @@ def part_key(seg_keys, logo, music, bed_at, first, last):
 
 
 def encode_part(dst, segs, work, logo, logo_until, bed, bed_at, length,
-                fade_in, fade_out):
+                fade_in, fade_out, tag=""):
     """Compress one run of segments, with the corner logo and the slice of the
     music bed that belongs under it.
 
@@ -700,9 +797,9 @@ def encode_part(dst, segs, work, logo, logo_until, bed, bed_at, length,
     # audio ends a few milliseconds long on each part, because an aac frame is
     # 1024 samples and the stream has to end on one, so a join shifts sound
     # against picture by about four milliseconds. A frame is thirty-three.
-    lst = work / "part.txt"
+    lst = work / f"part{tag}.txt"
     lst.write_text("".join(f"file '{s.resolve()}'\n" for s in segs))
-    joined = work / "part_joined.mkv"
+    joined = work / f"part_joined{tag}.mkv"
     run(["ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", str(lst),
          "-c", "copy", str(joined)])
 
@@ -740,10 +837,10 @@ def encode_part(dst, segs, work, logo, logo_until, bed, bed_at, length,
     cmd = ["ffmpeg", "-y", *inputs]
     if filters:
         cmd += ["-filter_complex", ";".join(filters)]
-    tmp = work / "part_tmp.mp4"
+    tmp = work / f"part_tmp{tag}.mp4"
     cmd += ["-map", f"[{vout}]" if vout != "0:v" else vout,
             "-map", f"[{aout}]" if aout != "0:a" else aout,
-            "-c:v", "libx264", "-preset", "medium", "-crf", "20",
+            "-c:v", "libx264", "-preset", FINAL_PRESET, "-crf", FINAL_CRF,
             "-pix_fmt", "yuv420p", "-r", str(FPS),
             "-c:a", "aac", "-b:a", "192k", "-ar", "48000",
             "-shortest", str(tmp)]
@@ -755,7 +852,7 @@ def encode_part(dst, segs, work, logo, logo_until, bed, bed_at, length,
 def plan(project, beats, theme, voice=VOICE, rate=RATE):
     """What a render would reuse, so the page can say it before Generate."""
     project = Path(project)
-    beats = _prepared(beats, project)
+    beats = _prepared(beats, project, theme)
     vdir = project / "cache" / "voice"
     sdir = project / "cache" / "segments"
     voices_cached = segs_cached = 0
@@ -776,6 +873,7 @@ def render_video(project, beats, theme, voice=VOICE, rate=RATE, progress=None):
     `progress(stage, done, total)` is called as work happens; stage is one of
     "voice", "slides", "segments", "final".
     """
+    from . import scenes
     if not shutil.which("ffmpeg"):
         raise RenderError("ffmpeg was not found. Run the installer again, or "
                           "install ffmpeg and restart the app.")
@@ -795,7 +893,7 @@ def render_video(project, beats, theme, voice=VOICE, rate=RATE, progress=None):
         if progress:
             progress(stage, done, total)
 
-    beats = _prepared(beats, project)
+    beats = _prepared(beats, project, theme)
     logo = project / "logo.png"
     music = project / "music.mp3"
     if logo.exists():
@@ -822,22 +920,48 @@ def render_video(project, beats, theme, voice=VOICE, rate=RATE, progress=None):
     def variant(i, eyes, mouth):
         return vardir / f"{variant_key(beats[i], theme)}_{eyes}_{mouth}.png"
 
+    overlays = {}
     for j, i in enumerate(missing):
         report("slides", j, len(missing))
         b = beats[i]
         if b["visual"] == "outro":
             b = {**b, "logo_big": str(work / "logo_big.png")}
-        if animated(b):
+        if animated(b, theme):
             for eyes, mouth in animate.VARIANTS:
                 p = variant(i, eyes, mouth)
                 if not p.exists():
                     render_slide(b, p, theme, eyes, mouth)
         else:
             render_slide(b, work / f"slide_{i:02d}.png", theme)
+        # The caption overlays are drawn here, with the slides, and not in the
+        # encode that uses them. Both go through pyplot, which keeps its
+        # figures in one global registry, and the encodes run several at a
+        # time. Drawing from those threads would have two of them in that
+        # registry at once.
+        pieces = b.get("rolling")
+        if pieces:
+            spans = captions.timings(pieces, LEAD_SILENCE, duration(paths[i]))
+            overlays[i] = [
+                (caption_frame(piece, theme, work / f"cap_{i:02d}_{k:02d}.png"),
+                 a, bb)
+                for k, (piece, (a, bb)) in enumerate(zip(pieces, spans))]
     report("slides", len(missing), len(missing))
 
-    for j, i in enumerate(missing):
-        report("segments", j, len(missing))
+    # One loop for the whole video: the weather does not change between beats,
+    # and generating it per segment would be the same pictures every time.
+    fx_dir = None
+    if getattr(theme, "effect", "none") != "none":
+        built = effects.build(theme.effect, theme,
+                              cache / "effects" / effects.key(theme.effect, theme))
+        fx_dir = built[0] if built else None
+
+    def build_segment(i):
+        """One beat into one segment file. Called from a worker thread.
+
+        Everything it touches is named after the beat, because several of
+        these run at once and a shared scratch name would have two of them
+        writing the same file.
+        """
         snd = paths[i]
         spoken = duration(snd)
         d = LEAD_SILENCE + spoken + BREATH
@@ -847,7 +971,7 @@ def render_video(project, beats, theme, voice=VOICE, rate=RATE, progress=None):
         # fraction of an output pixel, and the downscale averages it away.
         prescale = f"scale={W * PRESCALE}:{H * PRESCALE}:flags=bilinear,"
         pan = f":x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s={W}x{H}:fps={FPS}"
-        if animated(beats[i]):
+        if animated(beats[i], theme):
             mouths = [*["closed"] * int(round(LEAD_SILENCE * FPS)),
                       *animate.cached_track(snd, FPS, mdir)]
             mouths = (mouths + ["closed"] * frames)[:frames]
@@ -869,7 +993,31 @@ def render_video(project, beats, theme, voice=VOICE, rate=RATE, progress=None):
                     + f"zoompan=z='min(zoom+{ZOOM_RATE},1.06)':d={frames}" + pan)
         # fades go to the page colour, not black, or the light theme flashes dark
         fade_col = theme.bg.lstrip("#")
-        vf = (f"[0:v]{zoom},fade=t=in:st=0:d={FADE}:color=0x{fade_col},"
+        # The weather goes on after the zoom and before the fades, so it is
+        # not dragged around by the pan and it does fade out with everything
+        # else. It is a short loop of transparent frames played on repeat, so
+        # a ten minute video costs one loop.
+        # Layers over the picture, in order: the weather, then the caption
+        # pieces. Inputs are always slide, then narration, then whatever
+        # these add, whether the slide is one image or a sequence of them.
+        extra, over, nxt = [], "", 2
+        if fx_dir:
+            extra += ["-framerate", str(FPS), "-stream_loop", "-1",
+                      "-i", str(fx_dir / "frame_%03d.png")]
+            over += (f"[{nxt}:v]scale={W}:{H}[wx];[base][wx]"
+                     f"overlay=0:0:shortest=0[base];")
+            nxt += 1
+        # each piece is its own transparent frame, shown for its share of the
+        # beat. Overlaying rather than drawing them into the slide is what
+        # keeps a speaking beat at six slides instead of six times however
+        # many pieces the paragraph came to.
+        for cf, a, bb in overlays.get(i, ()):
+            extra += ["-i", str(cf)]
+            over += (f"[base][{nxt}:v]overlay=0:0:"
+                     f"enable='between(t,{a:.3f},{bb:.3f})'[base];")
+            nxt += 1
+        layers = f",format=rgba[base];{over}[base]null" if over else ""
+        vf = (f"[0:v]{zoom}{layers},fade=t=in:st=0:d={FADE}:color=0x{fade_col},"
               f"fade=t=out:st={d - FADE:.3f}:d={FADE}:color=0x{fade_col},"
               f"format=yuv420p[v]")
         # lead-in silence stops the first consonant being clipped by mp3 padding
@@ -877,14 +1025,24 @@ def render_video(project, beats, theme, voice=VOICE, rate=RATE, progress=None):
               f"aresample=48000,apad,atrim=0:{d:.3f},"
               f"afade=t=out:st={d - 0.25:.3f}:d=0.25[a]")
         # fast intermediate encode; the final pass does the real compression
-        tmp = work / "seg_tmp.mp4"
-        run(["ffmpeg", "-y", *src, "-i", str(snd),
+        tmp = work / f"seg_tmp_{i:02d}.mp4"
+        run(["ffmpeg", "-y", *src, "-i", str(snd), *extra,
              "-filter_complex", f"{vf};{af}",
              "-map", "[v]", "-map", "[a]",
              "-c:v", "libx264", "-preset", "veryfast", "-crf", "16",
              "-r", str(FPS), "-c:a", "pcm_s16le", "-ac", "2",
              "-t", f"{d:.3f}", str(tmp)])
         shutil.move(str(tmp), segs[i])
+
+    # One ffmpeg pins about one core: the zoom runs on a frame four times the
+    # size of the output and that filter is single threaded, so the encoder
+    # spends much of its time waiting for it. Four segments at once on four
+    # cores measured 3.8 times the throughput of one at a time. Segments are
+    # independent by construction, each keyed on its own beat, so this is the
+    # same work in a different order and the files that come out are
+    # identical.
+    in_flight(build_segment, missing,
+              lambda n: report("segments", n, len(missing)))
     report("segments", len(missing), len(missing))
     clock, srt, seconds = 0.0, [], []
     outro_start = None
@@ -908,26 +1066,40 @@ def render_video(project, beats, theme, voice=VOICE, rate=RATE, progress=None):
 
     pdir = cache / "parts"
     pdir.mkdir(parents=True, exist_ok=True)
-    made, offset = [], 0.0
+    # Each part's place in the music is fixed before any of them is encoded,
+    # because the offset is what tells a part which stretch of the one bed
+    # belongs under it. Working that out in the loop would have made the
+    # parts depend on the order they happen to finish in.
+    jobs, made, offset = [], [], 0.0
     for pi, (a, b) in enumerate(ranges):
         length, last = sum(seconds[a:b]), b == len(beats)
         key = part_key(seg_keys[a:b], logo, music, offset,
                        first=pi == 0, last=last)
         dst = pdir / f"{key}.mp4"
         if not dst.exists():
-            encode_part(dst, segs[a:b], work,
-                        logo=work / "logo_small.png" if logo.exists() else None,
-                        logo_until=None if outro_start is None
-                        else outro_start - offset,
-                        bed=bed, bed_at=offset, length=length,
-                        fade_in=pi == 0, fade_out=last)
+            jobs.append((pi, a, b, dst, offset, length, last))
         made.append(dst)
         offset += length
-        report("final", pi + 1, len(ranges))
+
+    def build_part(job):
+        pi, a, b, dst, at, length, last = job
+        encode_part(dst, segs[a:b], work,
+                    logo=work / "logo_small.png" if logo.exists() else None,
+                    logo_until=None if outro_start is None
+                    else outro_start - at,
+                    bed=bed, bed_at=at, length=length,
+                    fade_in=pi == 0, fade_out=last, tag=f"_{pi:02d}")
+
+    # Parts are independent for the same reason segments are, so they run the
+    # same way. A short video is one part and this is then one job, which is
+    # the serial path.
+    in_flight(build_part, jobs, lambda n: report("final", n, len(ranges)))
+    report("final", len(ranges), len(ranges))
 
     final = out_dir / "final.mp4"
+    joined = work / "joined_parts.mp4"
     if len(made) == 1:
-        shutil.copy(made[0], final)
+        shutil.copy(made[0], joined)
     else:
         # The parts were cut between beats and encoded to one profile, so the
         # join is a stream copy: no second generation of compression, and no
@@ -935,12 +1107,24 @@ def render_video(project, beats, theme, voice=VOICE, rate=RATE, progress=None):
         lst = work / "parts.txt"
         lst.write_text("".join(f"file '{s.resolve()}'\n" for s in made))
         run(["ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", str(lst),
-             "-c", "copy", "-movflags", "+faststart", str(final)])
+             "-c", "copy", str(joined)])
 
-    with open(out_dir / "final.srt", "w") as f:
+    subs = out_dir / "final.srt"
+    with open(subs, "w") as f:
         for k, (a, bb, txt) in enumerate(srt, 1):
             body = "\n".join(textwrap.wrap(txt, 52))
             f.write(f"{k}\n{srt_time(a)} --> {srt_time(bb)}\n{body}\n\n")
 
-    return {"video": final, "srt": out_dir / "final.srt", "seconds": clock,
+    # The subtitles go into the file as a track of their own as well as being
+    # written beside it. A sidecar only helps somebody who knows to look for
+    # it; a track is the switch every player already has, which is what people
+    # mean by subtitles. It is a stream copy either way, and the words are not
+    # burned into the picture, so they stay switchable.
+    run(["ffmpeg", "-y", "-i", str(joined), "-i", str(subs),
+         "-map", "0", "-map", "1", "-c", "copy", "-c:s", "mov_text",
+         "-metadata:s:s:0", "language=eng",
+         "-movflags", "+faststart", str(final)])
+    joined.unlink(missing_ok=True)
+
+    return {"video": final, "srt": subs, "seconds": clock,
             "parts": len(made)}

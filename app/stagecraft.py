@@ -204,6 +204,33 @@ LIGHTS = {"flat": flat, "glow": glow, "vignette": vignette,
           "warm": warm, "spot": spot}
 
 
+def backdrop(ax, T):
+    """A full frame wash, for a shot with nothing standing in it.
+
+    The grounds above are set: a floor, a panel, a sunburst, all of them
+    drawn to sit behind a figure and a headline that cover most of them. With
+    an empty frame in front they stop being background and become the
+    subject, and every one of them puts a hard horizontal edge across the
+    middle where the floor meets the wall. Nobody would choose that as a
+    picture.
+
+    This is what an empty frame gets instead: a gradient down the whole
+    height and one soft bloom of the accent off centre. No edges, nothing
+    that reads as an object, and it takes the light and the weather over the
+    top the same way a ground does.
+    """
+    u, v = _uv()
+    up, down = _poles(T)
+    # deeper along the bottom and lifted along the top, which is how a lit
+    # room falls whichever colour the room is
+    _wash(ax, down, np.clip(0.55 - v, 0, 1) ** 1.25 * 0.42 + np.zeros(FIELD))
+    _wash(ax, up, np.clip(v - 0.42, 0, 1) ** 1.35 * 0.20 + np.zeros(FIELD))
+    # off centre, because a bloom in the middle of an empty frame is a
+    # spotlight on nothing
+    d = np.sqrt(((u - 0.36) / 0.52) ** 2 + ((v - 0.62) / 0.46) ** 2)
+    _wash(ax, mix(T.a1, T.bg, 0.45), np.clip(1.0 - d, 0, 1) ** 1.8 * 0.30)
+
+
 # ----------------------------------------------------------------------
 # DRESSING
 #
@@ -369,16 +396,25 @@ DRESSING = {"none": no_dressing, "board": board, "growth": growth,
             "plant": plant, "flowers": flowers, "cat": cat}
 
 
-def draw(ax, T, focus, ground):
+def draw(ax, T, focus, ground, empty=False):
     """Lay the template's ground, dressing and light under a scene.
 
     Dressing goes on before the light, so the object standing beside the
     speaker is lit by the same pool or vignette as everything else rather
     than sitting on top of it looking cut out.
+
+    `empty` is a frame with nothing standing in it. The ground and the
+    dressing are both set built to sit behind a figure, so they are swapped
+    for the full frame backdrop; the light is the one part that works either
+    way and is kept, because it is most of what separates one template from
+    another.
     """
-    GROUNDS.get(getattr(T, "ground", "plain"), plain)(ax, T, focus, ground)
-    DRESSING.get(getattr(T, "dressing", "none"), no_dressing)(
-        ax, T, focus, ground)
+    if empty:
+        backdrop(ax, T)
+    else:
+        GROUNDS.get(getattr(T, "ground", "plain"), plain)(ax, T, focus, ground)
+        DRESSING.get(getattr(T, "dressing", "none"), no_dressing)(
+            ax, T, focus, ground)
     LIGHTS.get(getattr(T, "light", "flat"), flat)(ax, T, focus)
 
 

@@ -3,7 +3,11 @@ from app.themes import THEMES
 
 
 def test_curated_list_is_a_usable_size():
-    assert 8 <= len(voices.VOICES) <= 12
+    """Hundreds of voices is a worse choice than none, so the list is picked
+    rather than published. It grew past a dozen deliberately: the American
+    neural voices people recognise from narrated video elsewhere are worth
+    having even though they crowd the menu."""
+    assert 8 <= len(voices.VOICES) <= 24
 
 
 def test_accents_and_both_genders_are_covered():

@@ -328,3 +328,47 @@ def test_the_stamp_changes_when_the_stylesheet_does(tmp_path):
     assert f.stat().st_size == len("a{color:red }")
     assert main.asset_version(f) != first
     assert main.asset_version(tmp_path / "missing.css") == "0"
+
+
+def test_pictures_upload_fitted_and_can_be_removed(client, project, tmp_path):
+    """Fitting happens at upload, so what is on disk is already frame shaped
+    and the strip on the page shows the real thing."""
+    import io as _io
+    from PIL import Image as _Image
+    from app import images
+
+    buf = _io.BytesIO()
+    _Image.new("RGB", (600, 1200), (30, 40, 60)).save(buf, "PNG")
+    buf.seek(0)
+    r = client.post(f"/p/{project}/images",
+                    files={"files": ("tall photo.png", buf, "image/png")})
+    assert r.status_code == 200, r.text
+    listed = r.json()["images"]
+    assert len(listed) == 1
+
+    on_disk = images.listing(projects.path_of(project))
+    assert _Image.open(on_disk[0]).size == (images.W, images.H)
+
+    r = client.post(f"/p/{project}/images/remove",
+                    data={"file": listed[0]["file"]})
+    assert r.json()["images"] == []
+
+
+def test_a_file_that_is_not_an_image_is_refused(client, project):
+    import io as _io
+    r = client.post(f"/p/{project}/images",
+                    files={"files": ("notes.txt", _io.BytesIO(b"hello"), "text/plain")})
+    assert r.status_code == 400
+    assert "error" in r.json()
+
+
+def test_removing_a_picture_cannot_name_a_file_outside_the_project(client, project):
+    """The name comes back from the browser, so it cannot be trusted to stay
+    inside the images folder."""
+    from app import projects as pj
+    victim = pj.path_of(project) / "script.txt"
+    victim.write_text("words worth keeping")
+    (pj.path_of(project) / "images").mkdir(exist_ok=True)
+    for crafted in ("../script.txt", "../../../etc/hosts", "script.txt"):
+        client.post(f"/p/{project}/images/remove", data={"file": crafted})
+    assert victim.exists(), "a crafted name deleted a file outside images/"

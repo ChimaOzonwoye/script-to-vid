@@ -1,8 +1,9 @@
 """The narration voices offered in the app.
 
 edge-tts publishes hundreds of voices. A list that long is a worse choice
-than no list, so this is a curated dozen: six accents, both genders, all
-of them clear at a conversational pace.
+than no list, so this is a curated set: six accents, both genders, all of
+them clear at a conversational pace, and the American ones people will
+recognise from narrated video elsewhere.
 
 Samples are pre-generated into assets/voices/ by tools/generate_voices.py,
 which the installer runs. The picker plays those local files, so choosing a
@@ -15,18 +16,30 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 SAMPLE_DIR = ROOT / "assets" / "voices"
 
-# the line every sample says, short enough to generate twelve of quickly
+# the line every sample says, short enough to generate the whole set quickly
 SAMPLE_LINE = ("Here is what your video will sound like with my voice "
                "reading your script.")
 
 # (id, display name, accent, gender)
+#
+# These are Azure neural voices, which is what edge-tts serves. They are also
+# what most of the narrated video on social media is read by, so the ones
+# people recognise are here rather than only the ones that sound best to me.
 VOICES = [
     ("en-US-AndrewMultilingualNeural", "Andrew", "American", "male"),
     ("en-US-AvaMultilingualNeural",    "Ava",     "American", "female"),
     ("en-US-GuyNeural",                "Guy",     "American", "male"),
     ("en-US-JennyNeural",              "Jenny",   "American", "female"),
+    ("en-US-AriaNeural",               "Aria",    "American", "female"),
+    ("en-US-ChristopherNeural",        "Christopher", "American", "male"),
+    ("en-US-EricNeural",               "Eric",    "American", "male"),
+    ("en-US-MichelleNeural",           "Michelle", "American", "female"),
+    ("en-US-RogerNeural",              "Roger",   "American", "male"),
+    ("en-US-SteffanNeural",            "Steffan", "American", "male"),
     ("en-GB-RyanNeural",               "Ryan",    "British",  "male"),
     ("en-GB-SoniaNeural",              "Sonia",   "British",  "female"),
+    ("en-GB-ThomasNeural",             "Thomas",  "British",  "male"),
+    ("en-GB-LibbyNeural",              "Libby",   "British",  "female"),
     ("en-AU-WilliamNeural",            "William", "Australian", "male"),
     ("en-AU-NatashaNeural",            "Natasha", "Australian", "female"),
     ("en-IN-PrabhatNeural",            "Prabhat", "Indian",   "male"),

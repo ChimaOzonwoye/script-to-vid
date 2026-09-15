@@ -60,6 +60,12 @@ def test_every_scene_visual_renders(tmp_path):
     from app import scenes
     beats = {
         "scene_presenter": {"caption": "Words beside them", "side": "left"},
+        "scene_story": {"say": "Five years later it was money",
+                        "symbol": "money"},
+        # no image, so this falls back to the story frame, which is the case
+        # worth pinning: a photo template on a project with no pictures
+        "scene_photo": {"say": "Five years later it was money",
+                        "symbol": "money"},
         "scene_character": {"expr": "happy", "pose": "cheer", "prop": "piggy",
                             "caption": "Cap"},
         "scene_caption": {"caption": "Big caption"},
@@ -107,3 +113,27 @@ def test_the_part_key_covers_where_it_sits_in_the_music():
     b = engine.part_key(["x", "y"], None, None, 90.0, first=True, last=False)
     c = engine.part_key(["x", "y"], None, None, 0.0, first=False, last=False)
     assert len({a, b, c}) == 3
+
+
+def test_a_storytelling_template_draws_no_figure(tmp_path):
+    """The whole point of the layout: a frame with nobody in it. Skin is the
+    one colour only a character is drawn in, so counting it answers this
+    without caring how the figure is built."""
+    import numpy as np
+    from PIL import Image
+    from app import characters as ch
+    from app.script_parser import parse
+    from app.themes import THEMES, resolve
+
+    beat = parse("Five years later it was a twelve thousand dollar difference."
+                 )["beats"][0]
+    skin = np.array([int(ch.SKIN[i:i + 2], 16) for i in (1, 3, 5)])
+
+    def skin_pixels(T):
+        p = tmp_path / f"{T.name}_{T.layout}.png"
+        engine.render_slide(beat, p, T)
+        im = np.asarray(Image.open(p).convert("RGB")).astype(int)
+        return int((np.abs(im - skin).max(axis=2) < 10).sum())
+
+    assert skin_pixels(resolve("cream")) > 5000, "the presenter lost its figure"
+    assert skin_pixels(THEMES["nightfall"]) == 0, "a story frame drew a figure"

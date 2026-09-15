@@ -1,8 +1,9 @@
 # script to vid
 
 Write a script. Get back a finished narrated video: voiceover, drawn visuals,
-subtitles, your logo and music. Eleven templates decide how it looks, from a
-plain page to a dark room with a spotlight.
+subtitles, your logo and music. Seventeen templates decide how it looks, from
+a plain page to a dark room with a spotlight to rain falling over your own
+photographs.
 
 Runs on your own computer. Free, no account, no editing software, no limit on
 how much you make.
@@ -39,6 +40,30 @@ fair thing to be careful about.
 Click the green **Code** button above, then **Download ZIP**, and unzip it.
 Then on Windows double-click `install-windows.bat`, or on a Mac open Terminal
 in that folder and run `./install.sh`. Same result, more steps.
+
+</details>
+
+<details>
+<summary>Installing a branch instead of main</summary>
+
+Set `STV_BRANCH` before the install line. This is how you try a change before
+it is merged. On Windows, in PowerShell:
+
+```
+$env:STV_BRANCH="the-branch"
+irm https://raw.githubusercontent.com/ChimaOzonwoye/script-to-vid/the-branch/install.ps1 | iex
+```
+
+On a Mac:
+
+```
+STV_BRANCH=the-branch bash -c "$(curl -fsSL https://raw.githubusercontent.com/ChimaOzonwoye/script-to-vid/the-branch/install.sh)"
+```
+
+The branch name appears twice on purpose. The one in the URL picks which copy
+of the installer you run, and `STV_BRANCH` tells that installer which copy of
+the app to download. Get them out of step and you will install main while
+believing you installed the branch.
 
 </details>
 
@@ -141,11 +166,39 @@ Rooms are a separate thing and still exist: a room is furniture across the
 whole frame that you pick per beat with `> scene:`, this is one object a
 template carries everywhere.
 
-Eleven ship. Cream, Paper white, Sky and Mint are the quiet family: pale
-ground, even light, nothing beside the speaker. Mustard, Riso print, Coral,
-Slate, Deep forest, Ledger and Studio each commit to a ground and a light too,
-and three of them are dark. Ledger is built for money: a lit desk and a chart
-on the wall behind. Studio has a board on the wall, for teaching something.
+Seventeen ship, in three families.
+
+**Quiet**, four of them: Cream, Paper white, Sky and Mint. Pale ground, even
+light, nothing beside the speaker.
+
+**Bold**, seven: Mustard, Riso print, Coral, Slate, Deep forest, Ledger and
+Studio. Each commits to a ground and a light of its own and three are dark.
+Ledger is built for money, with a lit desk and a chart on the wall behind.
+Studio has a board on the wall, for teaching something.
+
+**Storytelling**, six: Nightfall, Downpour, Snowfall, Hearth, Attic and Your
+pictures. No drawn figure and nothing in the middle of the frame: a lit
+backdrop, the weather over it, and the subtitle along the bottom. Plenty of
+what people watch has nobody in it, and a script does not stop being a script
+because there is no presenter in front of it. Four of them run weather over the frame, which is a short loop of
+transparent frames laid on repeat, so a ten minute video costs one loop to
+render. Rain, snow, dust, embers, bokeh and stars, and every one is built so
+the particles travel a whole number of wraps across its length. Get that wrong
+and the loop jumps once a second, which is what five of the six did before the
+loop closure was measured rather than eyeballed.
+
+Your pictures is the one that takes images you supply. Drop them into the
+Pictures step and they are handed out to the beats in order, fitted to the
+frame. Anything within a fifth of 16:9 is cropped to fill it, which covers
+3:2, what nearly every camera and phone shoots. Anything further off, a 4:3,
+a square or a portrait, sits whole over a blurred copy of itself rather than
+being squashed or bordered in black. The line is where cropping starts taking
+a quarter off the height, which on a portrait is where heads come off.
+
+Nothing is drawn over your picture except the subtitle and the template's
+light, so a spotlight or a vignette grades the photograph the same way it
+grades everything else and the video holds together. A beat with no picture
+left for it falls back to the same bare backdrop the rest of the family uses.
 
 The picker shows a real still of each one. A name and three colour dots cannot
 tell anyone that Coral has a sunburst behind the speaker, and a template is the
@@ -273,6 +326,54 @@ fix it, because the problem was never the edges.
 material for this kind of video is full of them. Copying one would hand a
 claim over somebody's video to a company that had nothing to do with it.
 
+**Subtitles go at the bottom and the middle is left alone.** A caption set
+large in the centre of the frame is the thing the viewer is looking at, and
+what they should be looking at is the picture. The words run small along the
+bottom the way a subtitle does, and they are muxed into the file as a real
+subtitle track as well, so a player can turn them off.
+
+**Nothing goes in the middle of a storytelling frame.** The shapes that used
+to sit there were built from the headline, and the headline is the first nine
+words of the paragraph. Set large in the middle while the subtitle runs the
+same paragraph underneath, that is the narration twice, in two sizes. It is
+not a picture of anything, it is the sentence cut short and made big. A
+storytelling frame is now a backdrop, the light, the weather and the words
+where subtitles go. The four shapes that carry a headline are still there to
+choose, for a title card.
+
+The backdrop is its own thing rather than the presenter grounds, because
+those are set: a floor, a panel, a sunburst, all drawn to sit behind a figure
+that covers most of them. Bare, each one puts a hard horizontal edge across
+the middle where the floor meets the wall. A test renders every ground on an
+empty frame and fails on any row-to-row jump.
+
+**The pictures are yours or there are none.** There used to be a vocabulary of
+twenty-five drawn shapes, matched to the narration by keyword: money, a
+letter, a clock. It was removed. Keyword matching is a guess, and a guess is
+wrong often enough to be distracting. "Future growth that money could have
+earned" matches on the word money and draws a banknote, in a sentence about
+the growth that never happened. Shrinking it to a corner mark did not fix
+that, it only made the wrong picture smaller. Nothing here runs a model that
+could do it properly, so it does not pretend to: the frame shows the words
+the script wrote, or the images you uploaded, both of which are exactly
+right by construction.
+
+**One encode does not fill a machine, so several run at once.** The slow zoom
+works on a frame four times the size of the output, and that filter is single
+threaded, so the encoder spends much of its time waiting on it. One ten
+second segment measured 12.0s alone and 3.2s with four in flight. Segments
+are keyed on their own beat and share nothing, so they run on a small pool,
+and so do the parts. The output is byte for byte what the serial render
+produced, which is a test rather than a claim. `STV_JOBS` sets the pool size
+if you want your cores back for something else.
+
+**The final pass uses a fast preset.** It shipped on x264 preset medium at
+crf 20. Measured against veryfast at crf 22 on a hundred second render: 48%
+slower for a file 7% larger and an SSIM difference of 0.0003. On flat colour
+and large type, where a fast preset would band if it were going to, 0.99935
+against 0.99871. It was spending half the render refining bits the
+intermediate encode had already thrown away.
+
 **No YouTube downloader.** It would breach the terms of service and put
 Content ID claims on videos people are trying to monetise, which is the
 opposite of the point.
@@ -280,10 +381,17 @@ opposite of the point.
 ## Where this is
 
 Working and tested: the parser, the voiceover and its cache, all the scene
-layouts, the eleven templates with their grounds, lights, lettering and side
-objects, the logo and music, subtitles, the part renderer and its resume, the
-joiner, the installers for Windows and Mac, and the web app. 476 tests across
-unit, integration and end to end, with a real render in the integration ones.
+layouts, the seventeen templates with their grounds, lights, lettering, side
+objects and weather, your own pictures, the logo and music, subtitles both
+burned small at the bottom and muxed as a track, the part renderer and its
+resume, the joiner, the installers for Windows and Mac, and the web app. 610
+tests across unit, integration and end to end, with a real render in the
+integration ones.
+
+On four cores a hundred second video takes about two and a half minutes to
+render, most of it in ffmpeg. It was four and a half before the encodes were
+made to run alongside each other and the final pass stopped using a preset
+it was not getting anything for.
 
 Known gaps:
 

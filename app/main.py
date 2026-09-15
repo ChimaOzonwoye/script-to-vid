@@ -18,10 +18,13 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from PIL import Image
 
-from . import engine, joiner, projects, voices
+from . import (effects, engine, images, joiner, projects,
+               voices)
 from .script_parser import parse
 from .themes import (THEMES, DEFAULT_THEME, page_palette, resolve,
-                     LIGHT_LABELS, LETTERING_LABELS, DRESSING_LABELS)
+                     LIGHT_LABELS, LETTERING_LABELS, DRESSING_LABELS,
+                     CAPTION_LABELS, EFFECT_LABELS, FAMILY_LABELS,
+                     FAMILY_BLURBS, COMPOSITION_LABELS, by_family)
 
 HERE = Path(__file__).resolve().parent
 app = FastAPI(title="script to vid")
@@ -100,7 +103,8 @@ def _analysis(name, text):
     r = parse(text, keep=cfg["keep"])
     est = engine.estimate_seconds(r["beats"], cfg["rate"])
     theme = resolve(cfg["theme"], cfg["light"], cfg["lettering"],
-                    cfg["dressing"])
+                    cfg["dressing"], cfg["captions"], cfg["effect"],
+                    cfg["composition"])
     p = engine.plan(projects.path_of(name), r["beats"], theme,
                     cfg["voice"], cfg["rate"])
     m, s = divmod(int(est), 60)
@@ -148,7 +152,8 @@ def project_page(request: Request, name: str):
         return RedirectResponse("/", status_code=303)
     cfg = projects.settings(name)
     theme = resolve(cfg["theme"], cfg["light"], cfg["lettering"],
-                    cfg["dressing"])
+                    cfg["dressing"], cfg["captions"], cfg["effect"],
+                    cfg["composition"])
     p = projects.path_of(name)
     music = p / "music.mp3"
     msec = _music_seconds(music) if music.exists() else None
@@ -167,9 +172,19 @@ def project_page(request: Request, name: str):
         "lights": LIGHT_LABELS,
         "letterings": LETTERING_LABELS,
         "dressings": DRESSING_LABELS,
+        "captionings": CAPTION_LABELS,
+        "effects": EFFECT_LABELS,
+        "compositions": COMPOSITION_LABELS,
+        "families": by_family(),
+        "family_labels": FAMILY_LABELS,
+        "family_blurbs": FAMILY_BLURBS,
         "light": cfg["light"],
         "lettering": cfg["lettering"],
         "dressing": cfg["dressing"],
+        "captions": cfg["captions"],
+        "effect": cfg["effect"],
+        "composition": cfg["composition"],
+        "images": _image_listing(name),
         "voices": voices.listing(),
         "voice": cfg["voice"],
         "rates": voices.RATES,
@@ -242,8 +257,13 @@ def set_voice(name: str, voice: str = Form(...), rate: str = Form(...)):
 
 PREVIEW_DIR = projects.ROOT / "cache" / "previews"
 PREVIEW_LOCK = threading.Lock()
-PREVIEW_BEAT = {"say": "", "visual": "scene_presenter", "side": "left",
-                "caption": "A line from your script", "cast_i": 0,
+# The line has to be a real one, not an empty string: a story template draws
+# a composition built from the words and the caption underneath, so a beat
+# with nothing in it previews as an empty rectangle.
+PREVIEW_LINE = "The part nobody tells you about."
+PREVIEW_BEAT = {"say": PREVIEW_LINE,
+                "visual": "scene_presenter", "side": "left",
+                "caption": "The part nobody tells you", "cast_i": 0,
                 "expr": "happy", "pose": "offer"}
 
 
@@ -265,19 +285,30 @@ def preview_png(T):
             if not out.exists():
                 full = PREVIEW_DIR / f"{key}.full.png"
                 engine.render_slide(PREVIEW_BEAT, full, T)
-                Image.open(full).resize((480, 270), Image.LANCZOS).save(out)
+                shot = Image.open(full).convert("RGBA")
+                # the weather is a moving layer and a still cannot show it
+                # moving, but leaving it out makes several templates preview
+                # as plain gradients, so one frame of it goes on
+                built = effects.build(
+                    T.effect, T, PREVIEW_DIR / "fx" / effects.key(T.effect, T))
+                if built:
+                    layer = Image.open(built[0] / "frame_000.png").convert("RGBA")
+                    shot.alpha_composite(layer.resize(shot.size, Image.LANCZOS))
+                shot.convert("RGB").resize((480, 270), Image.LANCZOS).save(out)
                 full.unlink(missing_ok=True)
     return out
 
 
 @app.get("/template/{key}.png")
 def template_preview(key: str, light: str = "", lettering: str = "",
-                     dressing: str = ""):
+                     dressing: str = "", captions: str = "", effect: str = "",
+                     composition: str = ""):
     if key not in THEMES:
         return JSONResponse({"error": "no such template"}, status_code=404)
-    return FileResponse(preview_png(resolve(key, light, lettering, dressing)),
-                        media_type="image/png",
-                        headers={"Cache-Control": "no-cache"})
+    return FileResponse(
+        preview_png(resolve(key, light, lettering, dressing, captions,
+                            effect, composition)),
+        media_type="image/png", headers={"Cache-Control": "no-cache"})
 
 
 @app.post("/p/{name}/theme")
@@ -289,19 +320,25 @@ def set_theme(name: str, theme: str = Form(...)):
         # lettering it ships with are part of what was just chosen, and
         # keeping the last template's spotlight over them is not
         projects.save_settings(name, {"theme": theme, "light": "",
-                                      "lettering": "", "dressing": ""})
+                                      "lettering": "", "dressing": "",
+                                      "captions": "", "effect": "",
+                                      "composition": ""})
     return RedirectResponse(f"/p/{name}#look", status_code=303)
 
 
 @app.post("/p/{name}/look")
 def set_look(name: str, light: str = Form(""), lettering: str = Form(""),
-             dressing: str = Form("")):
+             dressing: str = Form(""), captions: str = Form(""),
+             effect: str = Form(""), composition: str = Form("")):
     if not _valid(name):
         return RedirectResponse("/", status_code=303)
     projects.save_settings(name, {
         "light": light if light in LIGHT_LABELS else "",
         "lettering": lettering if lettering in LETTERING_LABELS else "",
-        "dressing": dressing if dressing in DRESSING_LABELS else ""})
+        "dressing": dressing if dressing in DRESSING_LABELS else "",
+        "captions": captions if captions in CAPTION_LABELS else "",
+        "effect": effect if effect in EFFECT_LABELS else "",
+        "composition": composition if composition in COMPOSITION_LABELS else ""})
     return RedirectResponse(f"/p/{name}#look", status_code=303)
 
 
@@ -332,6 +369,63 @@ async def upload_logo(name: str, file: UploadFile = File(...)):
                        "from the folder directly, the file needs that exact "
                        "name.",
             "preview": f"/files/{name}/cache/work/logo_preview.png"}
+
+
+@app.post("/p/{name}/images")
+async def upload_images(name: str, files: list[UploadFile] = File(...)):
+    """Take pictures the user made elsewhere and fit them to the frame.
+
+    Fitting happens here rather than at render time so that what is on disk
+    is already the frame size: the render has nothing to decide, and the user
+    can see straight away what their picture will actually look like.
+    """
+    def fail(msg, code=400):
+        return JSONResponse({"error": msg}, status_code=code)
+
+    if not _valid(name):
+        return fail("That project no longer exists.", 404)
+    p = projects.path_of(name)
+    saved, skipped = [], []
+    for f in files:
+        suffix = Path(f.filename or "").suffix.lower()
+        if suffix not in images.SUFFIXES:
+            skipped.append(f.filename or "a file with no name")
+            continue
+        data = await f.read()
+        stem = images.safe_name(f.filename)
+        dst = p / "images" / f"{len(images.listing(p)):02d}-{stem}.png"
+        try:
+            images.fit(io.BytesIO(data), dst)
+        except Exception:
+            skipped.append(f.filename or "an unreadable file")
+            continue
+        saved.append(dst.name)
+    if not saved:
+        return fail("None of those could be read as images. They need to be "
+                    ".png, .jpg or .webp files.")
+    note = f"Added {len(saved)} picture{'s' if len(saved) != 1 else ''}."
+    if skipped:
+        note += f" Skipped {len(skipped)}: {', '.join(skipped[:3])}."
+    return {"message": note, "images": _image_listing(name)}
+
+
+@app.post("/p/{name}/images/remove")
+def remove_image(name: str, file: str = Form(...)):
+    if not _valid(name):
+        return JSONResponse({"error": "That project no longer exists."},
+                            status_code=404)
+    p = projects.path_of(name) / "images"
+    # the name has to come back out of the folder we listed, or a crafted one
+    # could name anything on the disk
+    target = next((f for f in images.listing(p.parent) if f.name == file), None)
+    if target:
+        target.unlink(missing_ok=True)
+    return {"message": "Removed.", "images": _image_listing(name)}
+
+
+def _image_listing(name):
+    return [{"file": f.name, "url": f"/files/{name}/images/{f.name}"}
+            for f in images.listing(projects.path_of(name))]
 
 
 @app.post("/p/{name}/logo/remove")
@@ -464,7 +558,8 @@ async def generate(name: str, request: Request):
     if not r["beats"]:
         return fail("The script is empty. Write some narration first.")
     theme = resolve(cfg["theme"], cfg["light"], cfg["lettering"],
-                    cfg["dressing"])
+                    cfg["dressing"], cfg["captions"], cfg["effect"],
+                    cfg["composition"])
     RENDERS[name] = {"state": "running", "message": "Starting..."}
     threading.Thread(target=_render_worker,
                      args=(name, r["beats"], theme, cfg["voice"], cfg["rate"]),

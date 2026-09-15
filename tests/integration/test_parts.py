@@ -97,3 +97,70 @@ def test_the_music_does_not_dip_at_a_join(tmp_path, monkeypatch):
     assert worst[0] < 0.35 * whole[worst[1]], (
         f"the mix drops at {worst[1] / 2:.1f}s: "
         f"whole {whole[worst[1]]:.0f}, split {split[worst[1]]:.0f}")
+
+
+@pytest.mark.skipif(not TRACK.exists(), reason="no bundled music")
+def test_the_video_carries_a_subtitle_track(tmp_path, monkeypatch):
+    """A sidecar .srt only helps somebody who knows to look for it. A track is
+    the switch every player already has, which is what people mean when they
+    say subtitles, and it stays switchable because the words are not burned
+    into the picture."""
+    r = render(tmp_path, "subs", 10_000.0, monkeypatch)
+    out = subprocess.run(
+        ["ffprobe", "-v", "error", "-show_entries",
+         "stream=index,codec_type,codec_name:stream_tags=language",
+         "-of", "csv=p=0", str(r["video"])],
+        capture_output=True, text=True).stdout
+    assert "subtitle" in out, out
+    assert "mov_text" in out, out
+    assert r["srt"].exists(), "the sidecar file should still be written too"
+
+
+LONG = ("Mistake number two: missing the employer match. Many companies add "
+        "money to your 401k when you contribute. A common example is fifty "
+        "cents for every dollar you put in, up to six percent of your salary.")
+
+
+def test_a_long_beat_does_not_run_its_caption_off_the_frame(tmp_path):
+    """A paragraph set as one block at the bottom loses its last line off the
+    edge of the picture. The pieces have to change through the beat, which is
+    also what stops a story frame being one still image held for fifteen
+    seconds."""
+    import dataclasses
+    from app import captions as cap
+    from app.script_parser import parse
+    from app.themes import THEMES
+
+    beats = parse(LONG + "\n")["beats"]
+    T = dataclasses.replace(THEMES["downpour"], effect="none")
+    d = tmp_path / "long"
+    d.mkdir()
+    prepared = engine._prepared(beats, d, T)
+    pieces = prepared[0].get("rolling")
+    assert pieces and len(pieces) > 3, "a paragraph this long has to be split"
+    assert " ".join(pieces) == " ".join(LONG.split())
+
+    r = engine.render_video(d, beats, T)
+    # sample across the beat: the bottom of the frame has to change, or the
+    # caption is one static block again
+    bottoms = []
+    for at in (1.0, 5.0, 9.0, 13.0):
+        out = tmp_path / f"f{at}.png"
+        subprocess.run(["ffmpeg", "-v", "error", "-ss", str(at),
+                        "-i", str(r["video"]), "-frames:v", "1",
+                        "-vf", "crop=iw:ih/5:0:ih*4/5,scale=160:-1",
+                        str(out)], check=True)
+        bottoms.append(out.read_bytes())
+    assert len(set(bottoms)) >= 3, "the caption did not change through the beat"
+
+
+def test_a_figureless_template_does_not_render_face_variants(tmp_path):
+    """The template can take the cast away, and then there is no mouth to
+    move. Without this the beat is drawn once per mouth and eye position for
+    a face that is never there."""
+    from app.script_parser import parse
+    from app.themes import THEMES
+    beat = parse("He read the letter twice.\n")["beats"][0]
+    assert engine.animated(beat, THEMES["cream"]) is True
+    assert engine.animated(beat, THEMES["downpour"]) is False
+    assert engine.animated(beat, THEMES["album"]) is False
