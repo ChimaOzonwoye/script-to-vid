@@ -116,9 +116,9 @@ def test_the_part_key_covers_where_it_sits_in_the_music():
 
 
 def test_a_storytelling_template_draws_no_figure(tmp_path):
-    """The whole point of the layout: a frame with nobody in it. Skin is the
-    one colour only a character is drawn in, so counting it answers this
-    without caring how the figure is built."""
+    """The whole point of the layout: a frame with no animated character in
+    it. Skin is the one colour only a character is drawn in, so counting it
+    answers this without caring how the figure is built."""
     import numpy as np
     from PIL import Image
     from app import characters as ch

@@ -141,9 +141,10 @@ def test_the_words_can_be_moved_off_the_middle_of_the_frame():
     assert resolve("cream", captions="middle").captions == "headline"
 
 
-def test_a_template_can_have_no_cast():
-    """Plenty of narrated video has nobody in it. The swap is a property of
-    the look, so the same script renders both ways."""
+def test_a_template_can_drop_the_animated_character():
+    """Plenty of narrated video is a background that holds still with the
+    words along the bottom. The swap is a property of the look, so the same
+    script renders both ways."""
     assert THEMES["nightfall"].layout == "story"
     for name in ("cream", "paper", "sky", "mint"):
         assert THEMES[name].layout == "presenter"

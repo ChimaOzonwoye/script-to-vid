@@ -275,8 +275,8 @@ def _presenter_content(fig, T, b, side):
 # ----------------------------------------------------------------------
 # STORY COMPOSITIONS
 #
-# A frame with no cast in it needs a shape of its own or every template is
-# the same template in a different colour. An icon in the middle was the
+# A frame with no animated character in it needs a shape of its own or every
+# template is the same template in a different colour. An icon in the middle was the
 # first and only one, and it has a second problem: whatever the icon happens
 # to be becomes what the template looks like, so a set of them all previewing
 # a banknote reads as six ways of making a video about money.
@@ -385,10 +385,12 @@ def _on(colour):
 
 
 def scene_story(fig, b, T):
-    """No figure at all: a lit ground, a composition, and the words.
+    """No animated character: a lit ground, a composition, and the words.
 
-    The drawn cast is what makes this look like an explainer. Plenty of what
-    people watch has nobody in it, and this is that shape.
+    The drawn figure, blinking and moving its mouth, is what makes a video
+    look like an explainer. Plenty of what people watch is a background that
+    holds still with the words running along the bottom, and this is that
+    shape.
     """
     shape = getattr(T, "composition", "bare")
     ax = _stage(fig, b, T, GROUND_Y, 0.5, empty=shape == "bare")
@@ -426,8 +428,8 @@ def scene_photo(fig, b, T):
 def scene_presenter(fig, b, T):
     """One figure held in place, the content beside them changing.
 
-    A template can say it has no cast, in which case an undirected beat is
-    drawn as a story frame instead. Doing the swap here rather than in the
+    A template can say it wants no animated character, in which case an
+    undirected beat is drawn as a story frame instead. Doing the swap here rather than in the
     parser keeps the choice with the look, where it belongs: the same script
     renders with a presenter or without one depending only on the template.
     """

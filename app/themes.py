@@ -29,10 +29,10 @@ class Theme:
     lettering: str = "plain"   # how headline type is treated
     dressing: str = "none"     # one object standing beside the speaker
     captions: str = "headline"  # where the words go, if anywhere
-    layout: str = "presenter"   # "presenter", "story" (no cast) or
+    layout: str = "presenter"   # "presenter", "story" (no character) or
                                 # "photo" (pictures you brought)
     effect: str = "none"        # particles moving over the whole frame
-    composition: str = "bare"   # the shape of a frame with no cast in it
+    composition: str = "bare"   # how a frame is laid out with no character
     family: str = "quiet"       # how the picker groups it
     blurb: str = ""         # one line describing the look, shown on the page
 
@@ -252,10 +252,9 @@ DRESSING_LABELS = {"none": "Nothing", "board": "A board on the wall",
 # grouped and one group is shown at a time. The grouping is by what the
 # template is for rather than by colour: a pale page with a headline and a
 # dark room with rain in it are different jobs, not different palettes.
-# The shape of a frame with no cast in it. A picture in the middle is what
-# was asked for, so most of these are frames for one; the type led shapes are
-# there for a template that is about what is said rather than what it is
-# about, and for a line that named nothing the vocabulary knows.
+# How a frame is laid out when there is no animated character in it. "bare"
+# leaves the middle empty and is what every storytelling template ships with;
+# the rest build the frame out of the headline, for a title card.
 COMPOSITION_LABELS = {"bare": "Nothing, just the background",
                       "card": "The words, mounted on a card",
                       "band": "The words across a solid bar",
@@ -267,8 +266,8 @@ FAMILY_LABELS = {"quiet": "Quiet", "bold": "Bold", "story": "Storytelling"}
 FAMILY_BLURBS = {
     "quiet": "A pale page and even light. The palette does the work.",
     "bold": "A ground and a light of its own, with a presenter.",
-    "story": "No cast and nothing in the middle. A lit background, weather "
-             "over it, and the words along the bottom.",
+    "story": "No animated character. A lit background that holds still, "
+             "weather drifting over it, and the words along the bottom.",
 }
 
 

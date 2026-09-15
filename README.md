@@ -78,9 +78,9 @@ still out of a video it renders, so they cannot drift from what the app does.*
 
 ![A still from a finished video](docs/a-still.png)
 
-*A frame from a finished video in the Hearth template, which is a
-storytelling one: nobody in it, a warm dark room with embers drifting
-through, and the line being spoken along the bottom.*
+*A frame from a finished video in the Hearth template, one of the
+storytelling ones: no animated character, a warm dark room with embers
+drifting through it, and the line being spoken along the bottom.*
 
 ## Why this exists
 
@@ -183,15 +183,17 @@ Ledger is built for money, with a lit desk and a chart on the wall behind.
 Studio has a board on the wall, for teaching something.
 
 **Storytelling**, six: Nightfall, Downpour, Snowfall, Hearth, Attic and Your
-pictures. No drawn figure and nothing in the middle of the frame: a lit
-backdrop, the weather over it, and the subtitle along the bottom. Plenty of
-what people watch has nobody in it, and a script does not stop being a script
-because there is no presenter in front of it. Four of them run weather over the frame, which is a short loop of
-transparent frames laid on repeat, so a ten minute video costs one loop to
-render. Rain, snow, dust, embers, bokeh and stars, and every one is built so
-the particles travel a whole number of wraps across its length. Get that wrong
-and the loop jumps once a second, which is what five of the six did before the
-loop closure was measured rather than eyeballed.
+pictures. No animated character on screen: a lit background that holds still,
+the weather drifting over it, and the subtitle along the bottom. Plenty of
+what people watch is made exactly this way, and a script does not stop being
+a script because there is no drawn figure reading it out.
+
+Four of them run weather over the frame, which is a short loop of transparent
+frames laid on repeat, so a ten minute video costs one loop to render. Rain,
+snow, dust, embers, bokeh and stars, and every one is built so the particles
+travel a whole number of wraps across its length. Get that wrong and the loop
+jumps once a second, which is what five of the six did before the loop
+closure was measured rather than eyeballed.
 
 Your pictures is the one that takes images you supply. Drop them into the
 Pictures step and they are handed out to the beats in order, fitted to the
