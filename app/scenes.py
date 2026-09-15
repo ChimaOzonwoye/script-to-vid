@@ -412,7 +412,10 @@ def scene_photo(fig, b, T):
     if not path:
         return scene_story(fig, b, T)
     import matplotlib.image as mpimg
-    ax = _stage(fig, b, T, GROUND_Y, 0.5)
+    # empty, because there is no figure here either. The picture covers the
+    # frame so nothing under it shows either way, and the grounds are set
+    # built to stand a figure on.
+    ax = _stage(fig, b, T, GROUND_Y, 0.5, empty=True)
     ax.imshow(mpimg.imread(path),
               extent=(X_MIN, X_MIN + STAGE_W, Y_MIN, Y_MIN + STAGE_H),
               aspect="auto", zorder=-5, interpolation="bilinear")

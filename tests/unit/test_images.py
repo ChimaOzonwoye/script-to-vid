@@ -94,3 +94,45 @@ def test_beats_take_the_pictures_in_order_and_repeat(tmp_path):
 def test_no_pictures_leaves_the_beats_alone(tmp_path):
     beats = [{"say": "hello"}]
     assert images.assign(beats, tmp_path) == beats
+
+
+def test_the_commonest_photo_aspect_fills_the_frame(tmp_path):
+    """3:2 is what cameras and phones shoot. At the tolerance this shipped
+    with it was 15.6% off 16:9 and so arrived with bars down both sides,
+    which is the opposite of fitting. Cropping takes 7.8% off the top and the
+    bottom instead.
+    """
+    from PIL import Image
+    import numpy as np
+    from app import images
+
+    for w, h in ((2100, 1400), (3000, 2000), (1200, 800)):
+        src = tmp_path / f"p{w}.png"
+        Image.new("RGB", (w, h), (40, 90, 200)).save(src)
+        out = np.asarray(Image.open(images.fit(src, tmp_path / f"o{w}.png")))
+        # a pillarboxed frame has a blurred band down each edge, so the
+        # columns at the sides would not be the flat colour of the picture
+        assert out.shape[:2] == (1080, 1920)
+        for col in (2, 40, 1879, 1917):
+            assert abs(int(out[:, col].mean()) - int(out[:, 960].mean())) < 3, \
+                f"{w}x{h} came back with a band at column {col}"
+
+
+def test_an_aspect_too_far_off_is_sat_inside_the_frame(tmp_path):
+    """The tolerance has to stop somewhere. Cropping a 4:3 or a portrait hard
+    enough to fill 16:9 takes a quarter or more off the height, which is where
+    heads come off, so those keep all of themselves over a blurred copy.
+    """
+    from PIL import Image
+    import numpy as np
+    from app import images
+
+    for w, h in ((1200, 900), (1080, 1080), (900, 1600)):
+        src = tmp_path / f"q{w}x{h}.png"
+        Image.new("RGB", (w, h), (240, 60, 30)).save(src)
+        out = np.asarray(Image.open(images.fit(src, tmp_path / f"r{w}x{h}.png")))
+        assert out.shape[:2] == (1080, 1920)
+        # all of it is still there: the tallest run of the original colour
+        # spans the full height of the frame
+        hit = (np.abs(out.astype(int) - [240, 60, 30]).max(axis=2) < 6)
+        assert hit[:, 960].sum() == 1080, f"{w}x{h} lost part of itself"

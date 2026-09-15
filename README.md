@@ -189,9 +189,16 @@ loop closure was measured rather than eyeballed.
 
 Your pictures is the one that takes images you supply. Drop them into the
 Pictures step and they are handed out to the beats in order, fitted to the
-frame: anything near 16:9 is cropped to fill, and anything far off it sits
-whole over a blurred copy of itself rather than being squashed or bordered in
-black.
+frame. Anything within a fifth of 16:9 is cropped to fill it, which covers
+3:2, what nearly every camera and phone shoots. Anything further off, a 4:3,
+a square or a portrait, sits whole over a blurred copy of itself rather than
+being squashed or bordered in black. The line is where cropping starts taking
+a quarter off the height, which on a portrait is where heads come off.
+
+Nothing is drawn over your picture except the subtitle and the template's
+light, so a spotlight or a vignette grades the photograph the same way it
+grades everything else and the video holds together. A beat with no picture
+left for it falls back to the same bare backdrop the rest of the family uses.
 
 The picker shows a real still of each one. A name and three colour dots cannot
 tell anyone that Coral has a sunburst behind the speaker, and a template is the
@@ -377,7 +384,7 @@ Working and tested: the parser, the voiceover and its cache, all the scene
 layouts, the seventeen templates with their grounds, lights, lettering, side
 objects and weather, your own pictures, the logo and music, subtitles both
 burned small at the bottom and muxed as a track, the part renderer and its
-resume, the joiner, the installers for Windows and Mac, and the web app. 608
+resume, the joiner, the installers for Windows and Mac, and the web app. 610
 tests across unit, integration and end to end, with a real render in the
 integration ones.
 

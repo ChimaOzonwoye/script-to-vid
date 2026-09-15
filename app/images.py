@@ -26,7 +26,14 @@ from PIL import Image, ImageFilter
 
 W, H = 1920, 1080
 FRAME = W / H
-COVER_TOLERANCE = 0.12      # how far from 16:9 still crops rather than pads
+# How far from 16:9 an image can be and still be cropped to fill the frame
+# rather than sat inside it. 3:2 is what most cameras and phones shoot, and it
+# is 15.6% off, so at 0.12 the commonest photo anybody owns arrived with bars
+# down the sides. Cropping it takes 7.8% off the top and the bottom, which is
+# what every video tool does and nobody notices. The next aspect up is 4:3 at
+# 25%, and cropping that much off a portrait cuts foreheads, so the line sits
+# between the two.
+COVER_TOLERANCE = 0.20
 SUFFIXES = (".png", ".jpg", ".jpeg", ".webp")
 MAX_PIXELS = 50_000_000     # refuse a decompression bomb before resizing it
 
