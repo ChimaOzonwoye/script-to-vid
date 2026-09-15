@@ -181,14 +181,14 @@ THEMES.update({
         captions="bottom", layout="story",
         composition="bare",
         family="story",
-        blurb="Deep violet night, wide bands, subtitles along the bottom."),
+        blurb="Deep violet night, quiet and still."),
     "downpour": _theme(
         "downpour", "Downpour", "#1b2430", "#e9eef2", "#7fb2d6", "#4a6a86",
         ground="arch", light="vignette", captions="bottom", layout="story",
         effect="rain",
         composition="bare",
         family="story",
-        blurb="Rain on a dark window, an arch of light behind it."),
+        blurb="Rain falling through a cold blue dark."),
     "snowfall": _theme(
         "snowfall", "Snowfall", "#243044", "#eef2f7", "#9fc4e8", "#6f86a8",
         ground="arch", light="glow", captions="bottom", layout="story",
@@ -267,8 +267,8 @@ FAMILY_LABELS = {"quiet": "Quiet", "bold": "Bold", "story": "Storytelling"}
 FAMILY_BLURBS = {
     "quiet": "A pale page and even light. The palette does the work.",
     "bold": "A ground and a light of its own, with a presenter.",
-    "story": "No cast. A lit background, the words at the bottom, and room "
-             "in the middle for the picture.",
+    "story": "No cast and nothing in the middle. A lit background, weather "
+             "over it, and the words along the bottom.",
 }
 
 
