@@ -69,16 +69,18 @@ believing you installed the branch.
 
 ![Picking a template](docs/the-page.png)
 
-*The Look step, on the storytelling family. Every template shows a real still
-of itself, and the light, the lettering, the weather and where the words go
-can each be changed on any of them. Both screenshots are made by
-`tools/screenshots.py`, which drives a real browser and pulls the still out of
-a video it renders, so they cannot drift from what the app does.*
+*The Look step, on the quiet family. Every template shows a real still of
+itself, and the light, the lettering, the weather and where the words go can
+each be changed on any of them. The page has taken Cream's palette, because
+picking a template tints the app as well as the video. Both screenshots are
+made by `tools/screenshots.py`, which drives a real browser and pulls the
+still out of a video it renders, so they cannot drift from what the app does.*
 
 ![A still from a finished video](docs/a-still.png)
 
-*A frame from a finished video in the Downpour template: a lit backdrop, rain
-over it, and the line being spoken along the bottom.*
+*A frame from a finished video in the Hearth template, which is a
+storytelling one: nobody in it, a warm dark room with embers drifting
+through, and the line being spoken along the bottom.*
 
 ## Why this exists
 

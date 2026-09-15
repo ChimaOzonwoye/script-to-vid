@@ -38,6 +38,17 @@ air comes up to temperature long before the walls do.
 Bread put into a cold-walled oven spreads before it sets. It comes out flat.
 """
 
+# What each shot is of. The page is the quiet family, which is where somebody
+# opening this for the first time lands, and the template has to be one of
+# them: the large preview under the tabs is of whatever is selected, not of
+# whatever tab is showing, so picking a storytelling one here would put rain
+# under a row labelled Quiet. The still is deliberately a different family
+# again, so the two pictures between them cover the range rather than showing
+# the same look twice.
+PAGE_FAMILY = "quiet"
+PAGE_TEMPLATE = "Cream"
+STILL_TEMPLATE = "hearth"
+
 
 def free_port():
     with socket.socket() as s:
@@ -78,16 +89,19 @@ def the_page(base, name):
         page.wait_for_url(f"**/p/{name}")
         page.fill("#script", SCRIPT)
         page.wait_for_selector("#script-info:has-text('words')")
-        # the picker opens on the family the current template is in, and that
-        # is a presenter one, so the storytelling group is hidden until its
-        # tab is picked
-        page.click('.famtab[data-fam="story"]')
-        page.wait_for_selector('#fam-story:not([hidden])')
-        with page.expect_navigation():
-            page.click('button[aria-label="Use the Downpour template"]')
-        page.wait_for_selector("#script-info:has-text('words')")
-        page.click('.famtab[data-fam="story"]')
-        page.wait_for_selector('#fam-story:not([hidden])')
+        # the picker opens on the family of whatever is currently selected, so
+        # the group this wants can be hidden. Open it, choose, then open it
+        # again, because choosing reloads the page.
+        for _ in range(2):
+            page.click(f'.famtab[data-fam="{PAGE_FAMILY}"]')
+            page.wait_for_selector(f'#fam-{PAGE_FAMILY}:not([hidden])')
+            if page.get_attribute(
+                    f'button[aria-label="Use the {PAGE_TEMPLATE} template"]',
+                    "class").find("selected") >= 0:
+                break
+            with page.expect_navigation():
+                page.click(f'button[aria-label="Use the {PAGE_TEMPLATE} template"]')
+            page.wait_for_selector("#script-info:has-text('words')")
         # the shot is of the Look step. scrollIntoView puts its top at the
         # top of the viewport, which is underneath the sticky header, so back
         # off by more than the header is tall
@@ -108,7 +122,7 @@ def a_still(tmp):
     shutil.rmtree(proj, ignore_errors=True)
     proj.mkdir(parents=True)
     beats = script_parser.parse(SCRIPT)["beats"]
-    T = THEMES["downpour"]
+    T = THEMES[STILL_TEMPLATE]
     out = engine.render_video(proj, beats, T)
     subprocess.run(["ffmpeg", "-v", "error", "-y", "-ss", f"{pick_moment(proj, beats, T):.3f}",
                     "-i", str(out["video"]), "-frames:v", "1",
